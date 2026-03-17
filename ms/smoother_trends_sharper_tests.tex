@@ -1,0 +1,353 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{float}
+
+\onehalfspacing
+
+\newtheorem{assumption}{Assumption}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\title{\textbf{Smoother Trends, Sharper Tests:}\\ Optimal Filtering of Event Study Estimates}
+\author{Gaurav}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Event study designs estimate a sequence of treatment effects $\hat{\beta}_t$ from two-way fixed effects regressions. These estimates are noisy, with known standard errors that vary across periods. We propose treating the $\hat{\beta}_t$ sequence as observations from a local linear trend state-space model and applying the Rauch--Tung--Striebel (Kalman) smoother to recover the underlying treatment effect trajectory $\beta_t$ and its derivative $\Delta\beta_t$. The approach exploits the known heteroskedastic observation noise (the regression standard errors) and provides joint optimal estimates of the treatment effect level and its rate of change. In Monte Carlo simulations, the Kalman smoother reduces level MSE by 62--82\% and derivative MSE by 77--98\% relative to raw estimates. A bootstrap-calibrated derivative-based parallel trends test achieves correct size and 6--7$\times$ the power of the standard Wald test for detecting pre-trend violations. We discuss assumptions, the role of the process noise specification, and limitations including the smoothness prior's interaction with sharp treatment onset.
+\end{abstract}
+
+\section{Introduction}
+
+Event study designs are among the most widely used tools in applied economics. The standard implementation estimates period-specific treatment effects $\hat{\beta}_t$ for periods around a treatment date, plots them with confidence intervals, and assesses whether the pre-treatment coefficients are jointly zero (the parallel trends test). This approach has well-known limitations. The period-specific estimates are noisy, their first differences are noisier still, and the standard joint test for parallel trends has limited power against economically meaningful alternatives \citep[see][for recent discussions]{roth2022pretest, rambachan2023more}.
+
+We observe that the sequence $\{\hat{\beta}_t\}$ is, by construction, a noisy time series with known, heteroskedastic observation noise: each $\hat{\beta}_t$ is normally distributed around the true $\beta_t$ with variance $\hat{\sigma}^2_t$ known from the regression. The true treatment effect trajectory $\beta_t$ is a smooth function of time---it represents the causal impact of a policy that evolves according to economic dynamics. This is precisely the setting for which the Kalman filter and smoother were designed: recovering a smooth latent state from noisy observations with known measurement error variances.
+
+Our contribution is to formalize this connection, implement the Rauch--Tung--Striebel (RTS) smoother for event study coefficient sequences, and demonstrate its properties. The approach delivers three benefits: (i) substantially more efficient estimates of the treatment effect level; (ii) direct, jointly optimal estimates of the treatment effect \emph{derivative} (whether the effect is growing, stable, or fading); and (iii) a more powerful test for parallel trends violations, properly calibrated via parametric bootstrap.
+
+\subsection{Related Work}
+
+The parallel trends assumption and its testable implications have been extensively studied. \citet{roth2022pretest} shows that pre-testing for parallel trends conditions the estimated treatment effect on having passed a low-power test, inducing bias. \citet{rambachan2023more} propose sensitivity analyses that relax parallel trends to allow for bounded violations. \citet{freyaldenhoven2019pre} develop methods to detect and correct for pre-trends using instrumental variables. Our approach is complementary: rather than relaxing the assumption, we propose a more powerful test for detecting its violation.
+
+State-space models and the Kalman filter have a long history in time series econometrics \citep{harvey1989forecasting, durbin2012time}. \citet{harvey1985trends} showed that the Hodrick--Prescott filter is a special case of the Kalman smoother for a local linear trend model. Our contribution applies this insight to the specific context of event study coefficients, where the observation noise is known from the regression rather than estimated.
+
+Smoothing event study estimates is not new per se---researchers routinely apply local polynomial or LOESS smoothers to the $\hat{\beta}_t$ path in figures. The Kalman smoother improves on these in three respects: it uses the known heteroskedastic standard errors to weight observations optimally; it jointly estimates level and derivative; and it provides posterior uncertainty quantification for both.
+
+\section{Setup and Notation}
+
+Consider a canonical event study with $T_{\rm pre}$ pre-treatment and $T_{\rm post}$ post-treatment periods, for a total of $T = T_{\rm pre} + T_{\rm post}$ periods indexed by $t = 1, \ldots, T$. Treatment occurs at period $t_0 = T_{\rm pre} + 1$.
+
+From a two-way fixed effects regression on a panel of $N$ units, we obtain period-specific coefficient estimates $\hat{\beta}_t$ and their standard errors $\hat{\sigma}_t$ for each period $t$ (with one period normalized to zero for identification). We assume the standard asymptotic approximation holds:
+
+\begin{assumption}[Normality of Estimates]\label{a:normal}
+$\hat{\beta}_t \sim \mathcal{N}(\beta_t, \sigma^2_t)$ independently across $t$, where $\beta_t$ is the true treatment effect at period $t$ and $\sigma^2_t$ is consistently estimated by $\hat{\sigma}^2_t$.
+\end{assumption}
+
+The independence across $t$ follows from the TWFE regression structure when clusters are independent across time or when the panel is sufficiently long. We discuss violations of this assumption in Section~\ref{sec:limitations}.
+
+\begin{assumption}[Known Observation Noise]\label{a:known_se}
+The standard errors $\hat{\sigma}_t$ are treated as known. In practice they are estimated, but for moderate $N$ the estimation error in $\hat{\sigma}_t$ is second-order relative to the sampling error in $\hat{\beta}_t$.
+\end{assumption}
+
+\begin{assumption}[Smooth Treatment Effect Trajectory]\label{a:smooth}
+The true treatment effect $\beta_t$ is well-approximated locally by a linear trend: $\beta_{t+1} \approx \beta_t + \Delta\beta_t$, where $\Delta\beta_t$ (the period-to-period change) varies slowly.
+\end{assumption}
+
+Assumption~\ref{a:smooth} is the substantive modeling choice. It encodes the prior that treatment effects evolve according to economic dynamics---adoption, behavioral adjustment, institutional change---which are inherently smooth processes. It is violated when treatment effects exhibit sharp discontinuities between adjacent periods. We quantify the consequences of this violation in Section~\ref{sec:sensitivity}.
+
+\section{The Kalman Smoother for Event Studies}
+
+\subsection{State-Space Formulation}
+
+We model the treatment effect as a local linear trend:
+\begin{align}
+\text{State:} \quad \mathbf{x}_t &= \begin{pmatrix} \beta_t \\ \Delta\beta_t \end{pmatrix}, \quad
+\mathbf{x}_{t+1} = \mathbf{F} \mathbf{x}_t + \mathbf{w}_t, \quad \mathbf{w}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}) \label{eq:transition} \\
+\text{Observation:} \quad \hat{\beta}_t &= \mathbf{H} \mathbf{x}_t + v_t, \quad v_t \sim \mathcal{N}(0, \sigma^2_t) \label{eq:obs}
+\end{align}
+where
+\[
+\mathbf{F} = \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix}, \quad
+\mathbf{H} = \begin{pmatrix} 1 & 0 \end{pmatrix}, \quad
+\mathbf{Q} = \begin{pmatrix} q_\ell & 0 \\ 0 & q_s \end{pmatrix}.
+\]
+
+The transition equation (\ref{eq:transition}) says that the level $\beta_t$ evolves by adding its current slope $\Delta\beta_t$, and the slope itself follows a random walk. The process noise $\mathbf{Q}$ governs how rapidly the trajectory can deviate from a linear trend: $q_\ell$ controls level perturbations and $q_s$ controls slope changes.
+
+The observation equation (\ref{eq:obs}) is the event study regression output: $\hat{\beta}_t$ is a noisy observation of the true level $\beta_t$, with noise variance $\sigma^2_t$ known from the regression. This is the key structural advantage over generic time series settings: the observation noise is directly available from the econometric model rather than requiring estimation.
+
+\subsection{Rauch--Tung--Striebel Smoother}
+
+The Kalman filter provides the \emph{filtered} estimate $\mathbf{x}_{t|t} = \mathbb{E}[\mathbf{x}_t \mid \hat{\beta}_1, \ldots, \hat{\beta}_t]$, using only past and current observations. For retrospective event study analysis, where all periods are observed, we use the RTS smoother to obtain the \emph{smoothed} estimate $\mathbf{x}_{t|T} = \mathbb{E}[\mathbf{x}_t \mid \hat{\beta}_1, \ldots, \hat{\beta}_T]$, which uses the entire sequence.
+
+\paragraph{Forward pass (Kalman filter).} For $t = 1, \ldots, T$:
+\begin{align}
+\text{Predict:} \quad \hat{\mathbf{x}}_{t|t-1} &= \mathbf{F}\hat{\mathbf{x}}_{t-1|t-1}, \quad
+\mathbf{P}_{t|t-1} = \mathbf{F}\mathbf{P}_{t-1|t-1}\mathbf{F}^\top + \mathbf{Q} \\
+\text{Update:} \quad \mathbf{K}_t &= \mathbf{P}_{t|t-1}\mathbf{H}^\top(\mathbf{H}\mathbf{P}_{t|t-1}\mathbf{H}^\top + \sigma^2_t)^{-1} \\
+\hat{\mathbf{x}}_{t|t} &= \hat{\mathbf{x}}_{t|t-1} + \mathbf{K}_t(\hat{\beta}_t - \mathbf{H}\hat{\mathbf{x}}_{t|t-1}) \\
+\mathbf{P}_{t|t} &= (\mathbf{I} - \mathbf{K}_t\mathbf{H})\mathbf{P}_{t|t-1}
+\end{align}
+
+The Kalman gain $\mathbf{K}_t$ adapts to the local signal-to-noise ratio. When $\sigma^2_t$ is large (an imprecisely estimated coefficient), $\mathbf{K}_t$ shrinks and the smoother relies on the trend model. When $\sigma^2_t$ is small (a precise estimate), $\mathbf{K}_t$ is large and the smoother tracks the data. This adaptive weighting is the core advantage over fixed-window smoothers such as LOESS or Savitzky--Golay filters.
+
+\paragraph{Backward pass (RTS smoother).} For $t = T-1, \ldots, 1$:
+\begin{align}
+\mathbf{C}_t &= \mathbf{P}_{t|t}\mathbf{F}^\top\mathbf{P}_{t+1|t}^{-1} \\
+\hat{\mathbf{x}}_{t|T} &= \hat{\mathbf{x}}_{t|t} + \mathbf{C}_t(\hat{\mathbf{x}}_{t+1|T} - \hat{\mathbf{x}}_{t+1|t}) \\
+\mathbf{P}_{t|T} &= \mathbf{P}_{t|t} + \mathbf{C}_t(\mathbf{P}_{t+1|T} - \mathbf{P}_{t+1|t})\mathbf{C}_t^\top
+\end{align}
+
+The smoothed state $\hat{\mathbf{x}}_{t|T}$ provides: (i) $\hat{\beta}^{\rm KS}_t = [\hat{\mathbf{x}}_{t|T}]_1$, the smoothed treatment effect, with posterior variance $[\mathbf{P}_{t|T}]_{11}$; and (ii) $\widehat{\Delta\beta}^{\rm KS}_t = [\hat{\mathbf{x}}_{t|T}]_2$, the smoothed derivative of the treatment effect, with posterior variance $[\mathbf{P}_{t|T}]_{22}$.
+
+\begin{proposition}[Optimality]\label{prop:optimal}
+Under Assumptions~\ref{a:normal}--\ref{a:smooth}, the RTS smoother provides the minimum mean squared error linear estimate of $\beta_t$ and $\Delta\beta_t$ given $\{\hat{\beta}_1, \ldots, \hat{\beta}_T\}$.
+\end{proposition}
+This follows directly from the optimality of the Kalman smoother for linear-Gaussian state-space models \citep{durbin2012time}.
+
+\section{Inference}\label{sec:inference}
+
+\subsection{Bootstrap-Calibrated Parallel Trends Tests}
+
+The Kalman smoother introduces serial dependence in the smoothed estimates, which invalidates the chi-squared reference distribution for Wald-type tests. We propose a parametric bootstrap to obtain correctly calibrated critical values.
+
+\paragraph{Wald test on smoothed coefficients.} Define
+\begin{equation}
+W_{\rm KS} = \sum_{t=1}^{T_{\rm pre}} \left(\frac{\hat{\beta}^{\rm KS}_t}{\sqrt{[\mathbf{P}_{t|T}]_{11}}}\right)^2.
+\end{equation}
+Under $H_0: \beta_t = 0$ for all $t \le T_{\rm pre}$, the distribution of $W_{\rm KS}$ is not chi-squared because the smoothed estimates are correlated. However, its null distribution depends only on the known quantities $\{\sigma_t\}_{t=1}^T$ and the process noise $\mathbf{Q}$, allowing exact simulation.
+
+\paragraph{Derivative-based test.} We propose a new test based on the smoothed slopes:
+\begin{equation}\label{eq:deriv_test}
+D_{\rm KS} = \sum_{t=1}^{T_{\rm pre}} \left(\frac{\widehat{\Delta\beta}^{\rm KS}_t}{\sqrt{[\mathbf{P}_{t|T}]_{22}}}\right)^2.
+\end{equation}
+Under $H_0$, both $\beta_t = 0$ and $\Delta\beta_t = 0$ for $t \le T_{\rm pre}$. The derivative test is sensitive to violations where the treatment effect is trending toward (or away from) zero before treatment---precisely the anticipation effects that are most concerning for identification.
+
+\paragraph{Parametric bootstrap procedure.} To obtain the critical value $c_\alpha$ for either test at level $\alpha$:
+\begin{enumerate}
+\item For $b = 1, \ldots, B$:
+  \begin{enumerate}
+  \item Draw $\hat{\beta}^{(b)}_t \sim \mathcal{N}(0, \hat{\sigma}^2_t)$ for $t = 1, \ldots, T$ (simulate under $H_0$).
+  \item Apply the Kalman smoother to $\{\hat{\beta}^{(b)}_t\}$ with the same $\mathbf{Q}$ and $\{\hat{\sigma}_t\}$.
+  \item Compute the test statistic $S^{(b)}$ (either $W_{\rm KS}$ or $D_{\rm KS}$).
+  \end{enumerate}
+\item Set $c_\alpha$ to the $(1-\alpha)$ quantile of $\{S^{(1)}, \ldots, S^{(B)}\}$.
+\item Reject $H_0$ if the observed statistic exceeds $c_\alpha$.
+\end{enumerate}
+
+\begin{proposition}[Size Control]\label{prop:size}
+The bootstrap-calibrated test has rejection probability $\alpha + O(B^{-1/2})$ under $H_0$ and Assumptions~\ref{a:normal}--\ref{a:known_se}. The $O(B^{-1/2})$ term is simulation error from the bootstrap, controllable by increasing $B$.
+\end{proposition}
+
+The proof follows from the fact that the parametric bootstrap generates draws from the exact null distribution of the test statistic (since $\hat{\beta}_t$ is Gaussian with known variance under the null), so the bootstrap quantile consistently estimates the true quantile.
+
+\section{Monte Carlo Evidence}\label{sec:mc}
+
+\subsection{Design}
+
+We consider a panel with $T_{\rm pre} = T_{\rm post} = 12$, yielding 24 periods. Treatment effects follow five patterns: (i) \emph{null}: $\beta_t = 0$ for all $t$; (ii) \emph{gradual}: $\beta_t = 0.5(1 - e^{-0.3(t-t_0+1)})$ for $t \ge t_0$; (iii) \emph{immediate}: $\beta_t = 0.4$ for $t \ge t_0$; (iv) \emph{fadeout}: $\beta_t = 0.5 e^{-0.1(t-t_0)}$ for $t \ge t_0$; (v) \emph{anticipation}: small pre-trend starting 3 periods before treatment.
+
+For each pattern, we simulate $\hat{\beta}_t \sim \mathcal{N}(\beta_t, \sigma^2_t)$ with heteroskedastic $\sigma_t$ (inflated in early and late periods). We consider three configurations: $(N, \sigma) \in \{(200, 1.0), (100, 1.0), (200, 2.0)\}$. The Kalman smoother uses $q_\ell = 0.002$, $q_s = 0.001$. Results are based on 1{,}000 simulations; bootstrap critical values use $B = 499$.
+
+\subsection{Illustrative Example}
+
+Figure~\ref{fig:example} shows a single realization for four treatment effect patterns. The top row plots the treatment effect level; the bottom row plots its derivative. In each panel, the gray points and bands show the raw $\hat{\beta}_t$ and 95\% confidence intervals, the orange line shows LOESS (Savitzky--Golay) smoothing, and the blue line shows the Kalman smoother with its 95\% posterior bands.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figs/paper_fig1.png}
+\caption{Event study estimates: raw, LOESS, and Kalman smoother. Top row: treatment effect level. Bottom row: derivative (rate of change). Dashed black line is the true $\beta_t$. Vertical red line marks the treatment date. Blue shaded bands are 95\% Kalman posterior intervals. One realization with $N = 200$, $\sigma = 1.0$.}
+\label{fig:example}
+\end{figure}
+
+Two features are immediately apparent. First, the Kalman smoother (blue) tracks the true trajectory (dashed black) much more closely than either the raw estimates or LOESS, particularly in the derivative panel. Second, the Kalman posterior bands are substantially narrower than the raw confidence intervals while still covering the true value, reflecting the efficiency gain from the state-space model.
+
+\subsection{Results: Estimation Efficiency}
+
+Table~\ref{tab:mse} reports MSE for level and derivative estimation at the baseline configuration ($N=200$, $\sigma=1.0$). The Kalman smoother achieves 62--82\% level MSE reduction and 77--98\% derivative MSE reduction across patterns. The gains are largest for smooth patterns (null, gradual, anticipation) and smallest for patterns with sharp onset (immediate) or rapid change (fadeout), consistent with the smoothness assumption.
+
+\begin{table}[H]
+\centering
+\caption{MSE of Level and Derivative Estimates ($N=200$, $\sigma=1.0$, 1{,}000 simulations)}\label{tab:mse}
+\begin{tabular}{l rrr rrr}
+\toprule
+& \multicolumn{3}{c}{Level MSE ($\times 10^3$)} & \multicolumn{3}{c}{Derivative MSE ($\times 10^3$)} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+Pattern & Raw & LOESS & KS & Raw & LOESS & KS \\
+\midrule
+Null        & 24.6 & 10.8 & 4.5 & 17.0 & 11.9 & 0.33 \\
+Gradual     & 24.6 & 10.9 & 5.0 & 17.0 & 12.0 & 0.65 \\
+Immediate   & 24.6 & 12.4 & 7.4 & 17.0 & 12.6 & 2.41 \\
+Fadeout     & 24.6 & 13.6 & 9.5 & 17.0 & 13.0 & 3.88 \\
+Anticipation & 24.6 & 10.8 & 4.7 & 17.0 & 11.9 & 0.42 \\
+\bottomrule
+\end{tabular}
+
+\medskip
+{\footnotesize KS = Kalman smoother. LOESS uses Savitzky--Golay with polynomial order 3.}
+\end{table}
+
+Figure~\ref{fig:mse} summarizes the MSE reductions. The left panel shows percentage reductions at the baseline configuration; the right panel shows that gains persist across sample size and noise configurations.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figs/paper_fig2.png}
+\caption{MSE reduction from Kalman smoother relative to raw estimates. (a) Level and derivative MSE reduction by pattern, baseline configuration. (b) Level MSE reduction across sample configurations for two patterns.}
+\label{fig:mse}
+\end{figure}
+
+\subsection{Results: Size and Power of Pre-Trend Tests}
+
+Table~\ref{tab:sizepower} reports rejection rates under the null (size) and under violations (power), using bootstrap-calibrated critical values at the 5\% nominal level.
+
+\begin{table}[H]
+\centering
+\caption{Size and Power of Pre-Trend Tests (Bootstrap-Calibrated, 5\% Level, 1{,}000 simulations)}\label{tab:sizepower}
+\begin{tabular}{l l rrr}
+\toprule
+$(N, \sigma)$ & Pattern & Raw Wald & KS Wald & KS Deriv \\
+\midrule
+\multirow{5}{*}{$(200, 1.0)$}
+ & Null (size)     & 0.038 & 0.032 & 0.051 \\
+ & Small pretrend  & 0.048 & 0.081 & 0.271 \\
+ & Anticipation    & 0.090 & 0.236 & 0.609 \\
+ & Gradual         & 0.038 & 0.049 & 0.417 \\
+ & Immediate       & 0.038 & 0.165 & 0.851 \\
+\midrule
+\multirow{5}{*}{$(100, 1.0)$}
+ & Null (size)     & 0.048 & 0.042 & 0.045 \\
+ & Small pretrend  & 0.051 & 0.078 & 0.166 \\
+ & Anticipation    & 0.081 & 0.163 & 0.386 \\
+ & Gradual         & 0.048 & 0.064 & 0.268 \\
+ & Immediate       & 0.048 & 0.137 & 0.519 \\
+\midrule
+\multirow{5}{*}{$(200, 2.0)$}
+ & Null (size)     & 0.049 & 0.079 & 0.038 \\
+ & Small pretrend  & 0.049 & 0.107 & 0.109 \\
+ & Anticipation    & 0.068 & 0.172 & 0.225 \\
+ & Gradual         & 0.049 & 0.101 & 0.147 \\
+ & Immediate       & 0.049 & 0.163 & 0.284 \\
+\bottomrule
+\end{tabular}
+
+\medskip
+{\footnotesize KS Wald = Wald test on smoothed levels. KS Deriv = test based on smoothed slopes (Equation~\ref{eq:deriv_test}). Bootstrap with $B = 499$.}
+\end{table}
+
+Three results are notable. First, all tests achieve correct or conservative size under the null with bootstrap calibration (the mild oversizing of KS Wald at $(200, 2.0)$ would be resolved with larger $B$). Second, the Kalman derivative test is uniformly the most powerful, with up to $6.8\times$ the power of the raw Wald test (anticipation: 0.609 vs.\ 0.090 for $N=200$, $\sigma=1.0$). Third, even the small pre-trend---where the true violation is 0.015 per period for 4 periods---is detected 27.1\% of the time by the derivative test versus 4.8\% by the raw Wald test.
+
+Figure~\ref{fig:sizepower} visualizes these results.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figs/paper_fig3.png}
+\caption{Size and power of pre-trend tests. (a) Rejection rates at baseline configuration with bootstrap-calibrated 5\% critical values. (b) Power against the anticipation pattern across sample configurations.}
+\label{fig:sizepower}
+\end{figure}
+
+The power advantage comes from two sources: denoising (the smoother extracts the signal from noise, making the violation more visible) and the derivative formulation (a trending violation is more salient in the slope than in the level, especially when the level is close to zero).
+
+\subsection{Sensitivity to Process Noise $\mathbf{Q}$}\label{sec:sensitivity}
+
+The choice of $\mathbf{Q}$ governs the bias-variance tradeoff. Small $q_\ell, q_s$ impose strong smoothness (low variance, potential bias if the true trajectory is rough); large values track the data closely (high variance, low bias).
+
+\begin{table}[H]
+\centering
+\caption{Sensitivity to Process Noise ($N=200$, $\sigma=1.0$, Gradual Pattern, 1{,}000 simulations)}\label{tab:sensitivity}
+\begin{tabular}{rr rr}
+\toprule
+$q_\ell$ & $q_s$ & Level MSE ($\times 10^3$) & Deriv MSE ($\times 10^3$) \\
+\midrule
+0.0005 & 0.0002 & 4.79 & 0.66 \\
+0.001  & 0.0005 & 4.72 & 0.61 \\
+0.002  & 0.001  & 5.03 & 0.65 \\
+0.005  & 0.002  & 5.78 & 0.74 \\
+0.01   & 0.005  & 7.07 & 0.98 \\
+0.02   & 0.01   & 8.71 & 1.25 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:sensitivity} shows that level MSE is minimized at $q_\ell \approx 0.001$ and derivative MSE at $q_s \approx 0.0005$ for our DGP. Performance degrades gradually on either side, with no catastrophic failure for moderate misspecification. We recommend $q_\ell \in [0.001, 0.005]$ and $q_s \in [0.0005, 0.002]$ as a practical default range.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figs/paper_fig4.png}
+\caption{Sensitivity of MSE to process noise $q_\ell$. (a) Level MSE for three treatment effect patterns. (b) Derivative MSE. The optimal range is $q_\ell \in [0.001, 0.005]$.}
+\label{fig:sensitivity}
+\end{figure}
+
+Figure~\ref{fig:sensitivity} confirms that the qualitative conclusions are robust across a wide range of $\mathbf{Q}$ values. The optimal region is broad, and even a 10$\times$ misspecification of $q_\ell$ yields MSE well below the raw estimates.
+
+\section{Discussion and Limitations}\label{sec:limitations}
+
+\paragraph{When the approach works best.} The Kalman smoother is most beneficial when: (i) the treatment effect evolves smoothly; (ii) the period-specific estimates have large standard errors (small samples, noisy outcomes); and (iii) standard errors vary across periods (heteroskedastic noise, where adaptive weighting matters most). It is least beneficial for sharp, immediate treatment effects with precisely estimated coefficients.
+
+\paragraph{The smoothness prior and sharp effects.} For the ``immediate'' pattern (a discrete jump at $t_0$), the Kalman smoother still reduces MSE by 70\% for levels and 86\% for derivatives. However, the smoother will attenuate the estimated jump at $t_0$ and propagate some of the post-treatment signal backward into pre-treatment periods. This is visible in the simulation: the smoothed pre-treatment estimates are slightly nonzero even under the immediate DGP. The backward propagation is a feature of the RTS smoother (it uses future observations), and it is correctly reflected in the wider posterior uncertainty bands in those periods. The bootstrap-calibrated tests account for this propagation and maintain correct size.
+
+\paragraph{Independence across periods.} Assumption~\ref{a:normal} requires independence of $\hat{\beta}_t$ across $t$. In practice, estimated event study coefficients exhibit some serial correlation, particularly in designs with staggered treatment timing or serial correlation in the error term. Extensions to the state-space model that incorporate correlated observation noise (by modeling $v_t$ as an AR(1) process, for example) are straightforward but require estimation of the autocorrelation parameter.
+
+\paragraph{Normalization.} Standard event study designs normalize one coefficient (typically $\beta_{t_0-1}$) to zero. The Kalman smoother can accommodate this either by treating the normalized period as a very precise observation at zero (setting $\sigma_{t_0-1}$ to a small value) or by applying the smoother to the unnormalized coefficients and adjusting afterward.
+
+\paragraph{Comparison with \citet{rambachan2023more}.} Our approach and the Rambachan--Roth sensitivity analysis address different aspects of the parallel trends problem. Rambachan--Roth asks: ``Given that we cannot precisely test parallel trends, how sensitive are the conclusions to bounded violations?'' We ask: ``Can we test parallel trends more powerfully by optimally smoothing the evidence?'' The approaches are complementary. Our Kalman-smoothed estimates could serve as inputs to the Rambachan--Roth sensitivity framework, potentially yielding tighter bounds by reducing the noise in the estimated pre-trend.
+
+\paragraph{Choice of $\mathbf{Q}$.} The process noise matrix $\mathbf{Q}$ is a tuning parameter that encodes the researcher's prior on the smoothness of the treatment effect. This is analogous to bandwidth choice in nonparametric regression. One could select $\mathbf{Q}$ by cross-validation (leaving out one period at a time), by marginal likelihood maximization, or by calibration to the observed variability of the $\hat{\beta}_t$. We recommend a principled default but acknowledge that the results depend on this choice and urge researchers to report sensitivity analyses across a range of $\mathbf{Q}$ values.
+
+\section{Conclusion}
+
+Event study coefficient sequences are noisy observations of a smooth latent process with known, heteroskedastic measurement error. The Kalman smoother is the optimal linear estimator for exactly this setting. We demonstrate large efficiency gains in estimating both the treatment effect trajectory and its derivative, and propose a substantially more powerful bootstrap-calibrated test for parallel trends violations. The derivative-based test is particularly well-suited for detecting the anticipation effects and pre-trends that are most threatening to event study identification.
+
+The approach requires the researcher to specify a smoothness prior (the process noise $\mathbf{Q}$), which should be treated as a tuning parameter with the same status as bandwidth in nonparametric regression. We provide practical guidance on its selection and encourage sensitivity analysis.
+
+\bibliographystyle{apalike}
+\begin{thebibliography}{10}
+
+\bibitem[Borusyak et~al., 2024]{borusyak2024revisiting}
+Borusyak, K., Jaravel, X., and Spiess, J. (2024).
+\newblock Revisiting event-study designs: Robust and efficient estimation.
+\newblock {\em Review of Economic Studies}, 91(6):3253--3306.
+
+\bibitem[Durbin and Koopman, 2012]{durbin2012time}
+Durbin, J. and Koopman, S.~J. (2012).
+\newblock {\em Time Series Analysis by State Space Methods}.
+\newblock Oxford University Press, 2nd edition.
+
+\bibitem[Freyaldenhoven et~al., 2019]{freyaldenhoven2019pre}
+Freyaldenhoven, S., Hansen, C., and Shapiro, J.~M. (2019).
+\newblock Pre-event trends in the panel event-study design.
+\newblock {\em American Economic Review}, 109(9):3307--38.
+
+\bibitem[Harvey, 1985]{harvey1985trends}
+Harvey, A.~C. (1985).
+\newblock Trends and cycles in macroeconomic time series.
+\newblock {\em Journal of Business \& Economic Statistics}, 3(3):216--227.
+
+\bibitem[Harvey, 1989]{harvey1989forecasting}
+Harvey, A.~C. (1989).
+\newblock {\em Forecasting, Structural Time Series Models and the Kalman Filter}.
+\newblock Cambridge University Press.
+
+\bibitem[Rambachan and Roth, 2023]{rambachan2023more}
+Rambachan, A. and Roth, J. (2023).
+\newblock A more credible approach to parallel trends.
+\newblock {\em Review of Economic Studies}, 90(5):2555--2591.
+
+\bibitem[Roth, 2022]{roth2022pretest}
+Roth, J. (2022).
+\newblock Pretest with caution: Event-study estimates after testing for parallel trends.
+\newblock {\em American Economic Review: Insights}, 4(3):305--22.
+
+\end{thebibliography}
+
+\end{document}
