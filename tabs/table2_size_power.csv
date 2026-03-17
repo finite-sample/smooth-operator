@@ -1,16 +1,101 @@
-n,sigma,pattern,rej_raw,rej_kalman_wald,rej_kalman_deriv
-200,1.0,zero,0.053,0.039,0.055
-200,1.0,small_pretrend,0.061,0.081,0.25
-200,1.0,anticipation,0.106,0.214,0.618
-200,1.0,gradual,0.053,0.064,0.426
-200,1.0,immediate,0.053,0.156,0.854
-100,1.0,zero,0.056,0.046,0.061
-100,1.0,small_pretrend,0.062,0.075,0.175
-100,1.0,anticipation,0.081,0.149,0.397
-100,1.0,gradual,0.056,0.07,0.263
-100,1.0,immediate,0.056,0.127,0.554
-200,2.0,zero,0.075,0.056,0.053
-200,2.0,small_pretrend,0.077,0.074,0.118
-200,2.0,anticipation,0.089,0.12,0.228
-200,2.0,gradual,0.075,0.073,0.165
-200,2.0,immediate,0.075,0.113,0.287
+n,sigma,config,pattern,test,rejection
+200,1.0,"$N{=}200, \sigma{=}1$",no effect,Raw Wald,0.038
+200,1.0,"$N{=}200, \sigma{=}1$",no effect,Parametric slope,0.049
+200,1.0,"$N{=}200, \sigma{=}1$",no effect,EB Wald,0.065
+200,1.0,"$N{=}200, \sigma{=}1$",no effect,Kalman Wald,0.035
+200,1.0,"$N{=}200, \sigma{=}1$",no effect,Kalman deriv,0.052
+200,1.0,"$N{=}200, \sigma{=}1$",small pretrend,Raw Wald,0.048
+200,1.0,"$N{=}200, \sigma{=}1$",small pretrend,Parametric slope,0.063
+200,1.0,"$N{=}200, \sigma{=}1$",small pretrend,EB Wald,0.064
+200,1.0,"$N{=}200, \sigma{=}1$",small pretrend,Kalman Wald,0.098
+200,1.0,"$N{=}200, \sigma{=}1$",small pretrend,Kalman deriv,0.276
+200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Raw Wald,0.09
+200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Parametric slope,0.094
+200,1.0,"$N{=}200, \sigma{=}1$",anticipation,EB Wald,0.097
+200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Kalman Wald,0.255
+200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Kalman deriv,0.611
+200,1.0,"$N{=}200, \sigma{=}1$",gradual,Raw Wald,0.038
+200,1.0,"$N{=}200, \sigma{=}1$",gradual,Parametric slope,0.049
+200,1.0,"$N{=}200, \sigma{=}1$",gradual,EB Wald,0.065
+200,1.0,"$N{=}200, \sigma{=}1$",gradual,Kalman Wald,0.06
+200,1.0,"$N{=}200, \sigma{=}1$",gradual,Kalman deriv,0.419
+200,1.0,"$N{=}200, \sigma{=}1$",immediate,Raw Wald,0.038
+200,1.0,"$N{=}200, \sigma{=}1$",immediate,Parametric slope,0.049
+200,1.0,"$N{=}200, \sigma{=}1$",immediate,EB Wald,0.065
+200,1.0,"$N{=}200, \sigma{=}1$",immediate,Kalman Wald,0.184
+200,1.0,"$N{=}200, \sigma{=}1$",immediate,Kalman deriv,0.854
+500,1.0,"$N{=}500, \sigma{=}1$",no effect,Raw Wald,0.052
+500,1.0,"$N{=}500, \sigma{=}1$",no effect,Parametric slope,0.07
+500,1.0,"$N{=}500, \sigma{=}1$",no effect,EB Wald,0.051
+500,1.0,"$N{=}500, \sigma{=}1$",no effect,Kalman Wald,0.068
+500,1.0,"$N{=}500, \sigma{=}1$",no effect,Kalman deriv,0.067
+500,1.0,"$N{=}500, \sigma{=}1$",small pretrend,Raw Wald,0.086
+500,1.0,"$N{=}500, \sigma{=}1$",small pretrend,Parametric slope,0.099
+500,1.0,"$N{=}500, \sigma{=}1$",small pretrend,EB Wald,0.063
+500,1.0,"$N{=}500, \sigma{=}1$",small pretrend,Kalman Wald,0.205
+500,1.0,"$N{=}500, \sigma{=}1$",small pretrend,Kalman deriv,0.556
+500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Raw Wald,0.248
+500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Parametric slope,0.225
+500,1.0,"$N{=}500, \sigma{=}1$",anticipation,EB Wald,0.156
+500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Kalman Wald,0.623
+500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Kalman deriv,0.969
+500,1.0,"$N{=}500, \sigma{=}1$",gradual,Raw Wald,0.052
+500,1.0,"$N{=}500, \sigma{=}1$",gradual,Parametric slope,0.07
+500,1.0,"$N{=}500, \sigma{=}1$",gradual,EB Wald,0.051
+500,1.0,"$N{=}500, \sigma{=}1$",gradual,Kalman Wald,0.093
+500,1.0,"$N{=}500, \sigma{=}1$",gradual,Kalman deriv,0.807
+500,1.0,"$N{=}500, \sigma{=}1$",immediate,Raw Wald,0.052
+500,1.0,"$N{=}500, \sigma{=}1$",immediate,Parametric slope,0.07
+500,1.0,"$N{=}500, \sigma{=}1$",immediate,EB Wald,0.051
+500,1.0,"$N{=}500, \sigma{=}1$",immediate,Kalman Wald,0.359
+500,1.0,"$N{=}500, \sigma{=}1$",immediate,Kalman deriv,0.999
+200,2.0,"$N{=}200, \sigma{=}2$",no effect,Raw Wald,0.048
+200,2.0,"$N{=}200, \sigma{=}2$",no effect,Parametric slope,0.073
+200,2.0,"$N{=}200, \sigma{=}2$",no effect,EB Wald,0.05
+200,2.0,"$N{=}200, \sigma{=}2$",no effect,Kalman Wald,0.043
+200,2.0,"$N{=}200, \sigma{=}2$",no effect,Kalman deriv,0.063
+200,2.0,"$N{=}200, \sigma{=}2$",small pretrend,Raw Wald,0.046
+200,2.0,"$N{=}200, \sigma{=}2$",small pretrend,Parametric slope,0.076
+200,2.0,"$N{=}200, \sigma{=}2$",small pretrend,EB Wald,0.054
+200,2.0,"$N{=}200, \sigma{=}2$",small pretrend,Kalman Wald,0.063
+200,2.0,"$N{=}200, \sigma{=}2$",small pretrend,Kalman deriv,0.148
+200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Raw Wald,0.063
+200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Parametric slope,0.086
+200,2.0,"$N{=}200, \sigma{=}2$",anticipation,EB Wald,0.058
+200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Kalman Wald,0.104
+200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Kalman deriv,0.283
+200,2.0,"$N{=}200, \sigma{=}2$",gradual,Raw Wald,0.048
+200,2.0,"$N{=}200, \sigma{=}2$",gradual,Parametric slope,0.073
+200,2.0,"$N{=}200, \sigma{=}2$",gradual,EB Wald,0.05
+200,2.0,"$N{=}200, \sigma{=}2$",gradual,Kalman Wald,0.06
+200,2.0,"$N{=}200, \sigma{=}2$",gradual,Kalman deriv,0.213
+200,2.0,"$N{=}200, \sigma{=}2$",immediate,Raw Wald,0.048
+200,2.0,"$N{=}200, \sigma{=}2$",immediate,Parametric slope,0.073
+200,2.0,"$N{=}200, \sigma{=}2$",immediate,EB Wald,0.05
+200,2.0,"$N{=}200, \sigma{=}2$",immediate,Kalman Wald,0.1
+200,2.0,"$N{=}200, \sigma{=}2$",immediate,Kalman deriv,0.355
+100,1.0,"$N{=}100, \sigma{=}1$",no effect,Raw Wald,0.048
+100,1.0,"$N{=}100, \sigma{=}1$",no effect,Parametric slope,0.064
+100,1.0,"$N{=}100, \sigma{=}1$",no effect,EB Wald,0.05
+100,1.0,"$N{=}100, \sigma{=}1$",no effect,Kalman Wald,0.069
+100,1.0,"$N{=}100, \sigma{=}1$",no effect,Kalman deriv,0.047
+100,1.0,"$N{=}100, \sigma{=}1$",small pretrend,Raw Wald,0.051
+100,1.0,"$N{=}100, \sigma{=}1$",small pretrend,Parametric slope,0.073
+100,1.0,"$N{=}100, \sigma{=}1$",small pretrend,EB Wald,0.056
+100,1.0,"$N{=}100, \sigma{=}1$",small pretrend,Kalman Wald,0.112
+100,1.0,"$N{=}100, \sigma{=}1$",small pretrend,Kalman deriv,0.175
+100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Raw Wald,0.081
+100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Parametric slope,0.094
+100,1.0,"$N{=}100, \sigma{=}1$",anticipation,EB Wald,0.063
+100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Kalman Wald,0.226
+100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Kalman deriv,0.398
+100,1.0,"$N{=}100, \sigma{=}1$",gradual,Raw Wald,0.048
+100,1.0,"$N{=}100, \sigma{=}1$",gradual,Parametric slope,0.064
+100,1.0,"$N{=}100, \sigma{=}1$",gradual,EB Wald,0.05
+100,1.0,"$N{=}100, \sigma{=}1$",gradual,Kalman Wald,0.089
+100,1.0,"$N{=}100, \sigma{=}1$",gradual,Kalman deriv,0.281
+100,1.0,"$N{=}100, \sigma{=}1$",immediate,Raw Wald,0.048
+100,1.0,"$N{=}100, \sigma{=}1$",immediate,Parametric slope,0.064
+100,1.0,"$N{=}100, \sigma{=}1$",immediate,EB Wald,0.05
+100,1.0,"$N{=}100, \sigma{=}1$",immediate,Kalman Wald,0.192
+100,1.0,"$N{=}100, \sigma{=}1$",immediate,Kalman deriv,0.539

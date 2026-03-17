@@ -1,1 +1,7 @@
 .DS_Store
+scripts/texput.log
+ms/smoother_trends_sharper_tests.aux
+ms/smoother_trends_sharper_tests.bbl
+ms/smoother_trends_sharper_tests.blg
+ms/smoother_trends_sharper_tests.log
+ms/smoother_trends_sharper_tests.out

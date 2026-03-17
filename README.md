@@ -8,9 +8,9 @@ Event study designs estimate period-specific treatment effects β̂\_t with know
 |---|---|
 | Level MSE (β̂\_t vs true β\_t) | 62–82% reduction vs raw estimates |
 | Derivative MSE (Δβ̂\_t vs true Δβ\_t) | 77–98% reduction vs raw estimates |
-| Parallel trends power (anticipation) | 60.9% vs 9.0% (raw Wald), bootstrap-calibrated at 5% |
-| Parallel trends power (small pretrend) | 27.1% vs 4.8% (raw Wald) |
-| Size under null | 5.1% (correctly sized with bootstrap calibration) |
+| Parallel trends power (anticipation) | 61.1% vs 9.0% (raw Wald), bootstrap-calibrated at 5% |
+| Parallel trends power (small pretrend) | 27.6% vs 4.8% (raw Wald) |
+| Size under null | 5.2% (correctly sized with bootstrap calibration) |
 
 ## Why This Works
 
@@ -50,20 +50,22 @@ No R dependencies. No PyTorch. Everything runs in base scientific Python.
 ### Running
 
 ```bash
-cd simulations
+cd scripts
 python paper_simulation.py
 ```
 
 Takes ~5 minutes. Produces:
-- `table1_mse.csv`, `table2_size_power.csv`, `table3_sensitivity.csv`
-- `paper_fig1.png` through `paper_fig4.png`
+- `tabs/table1_mse.csv`, `tabs/table2_size_power.csv`, `tabs/table3_sensitivity.csv`
+- `figs/paper_fig1.png` through `figs/paper_fig4.png`
 
 To compile the paper:
 
 ```bash
-cd paper
+cd ms
 pdflatex smoother_trends_sharper_tests.tex
-pdflatex smoother_trends_sharper_tests.tex  # twice for references
+bibtex smoother_trends_sharper_tests
+pdflatex smoother_trends_sharper_tests.tex
+pdflatex smoother_trends_sharper_tests.tex
 ```
 
 ## Method Summary
