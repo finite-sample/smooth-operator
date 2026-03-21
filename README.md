@@ -1,4 +1,4 @@
-## Smoother Trends, Clearer Dynamics: Optimal Filtering of Event Study Estimates
+## Smooth Operator: Optimal Filtering of Event Study Estimates
 
 Event study designs estimate period-specific treatment effects β̂\_t with known standard errors from two-way fixed effects regressions. We treat the β̂\_t sequence as observations from a local linear trend state-space model and apply the Rauch–Tung–Striebel (Kalman) smoother to recover the treatment effect trajectory and its derivative. The approach uses the known, heteroskedastic regression standard errors as observation noise — a structural advantage over generic smoothing methods.
 
