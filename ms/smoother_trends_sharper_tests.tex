@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-Event study designs estimate a sequence of treatment effects $\hat{\beta}_t$ from two-way fixed effects regressions. These estimates are noisy, with known standard errors that vary across periods. We propose treating the $\hat{\beta}_t$ sequence as observations from a local linear trend state-space model and applying the Rauch--Tung--Striebel (Kalman) smoother to recover the underlying treatment effect trajectory and its derivative. The Kalman smoother reduces level MSE by 70--80\% relative to raw estimates, substantially outperforming competitive baselines including James--Stein shrinkage (48\%), empirical Bayes (25\%), and LOESS (56\%). The gains are largest for derivative estimation, where the Kalman smoother achieves 96\% MSE reduction versus 48\% for James--Stein and 30\% for LOESS. A bootstrap-calibrated derivative-based parallel trends test achieves correct size and 6--7$\times$ the power of the standard Wald test for detecting pre-trend violations---a margin that no competing test approaches.
+Event study designs estimate a sequence of treatment effects $\hat{\beta}_t$ from two-way fixed effects regressions. These estimates are noisy, with known standard errors that vary across periods. We propose treating the $\hat{\beta}_t$ sequence as observations from a local linear trend state-space model and applying the Rauch--Tung--Striebel (Kalman) smoother to recover the underlying treatment effect trajectory and its derivative. The Kalman smoother reduces level MSE by 70--80\% relative to raw estimates, substantially outperforming competitive baselines including James--Stein shrinkage (48\%), empirical Bayes (25\%), and Savitzky--Golay (56\%). The gains are largest for derivative estimation, where the Kalman smoother achieves 96\% MSE reduction versus 48\% for James--Stein and 30\% for Savitzky--Golay. A bootstrap-calibrated derivative-based parallel trends test achieves correct size and 6--7$\times$ the power of the standard Wald test for detecting pre-trend violations---a margin that no competing test approaches.
 \end{abstract}
 
 \section{Introduction}
@@ -91,11 +91,11 @@ We compare the Kalman smoother against five alternatives that a researcher might
 
 \paragraph{Empirical Bayes.} Assume $\beta_t \sim N(0, \tau^2)$ with $\tau^2$ estimated from the marginal variance of $\hat{\beta}_t$. The posterior mean is $(\tau^2 / (\tau^2 + \sigma^2_t)) \hat{\beta}_t$.
 
-\paragraph{LOESS (Savitzky--Golay).} Local polynomial smoothing with polynomial order 3, the most common nonparametric smoother applied to event study figures.
+\paragraph{Savitzky--Golay.} Local polynomial smoothing with polynomial order 3, the most common nonparametric smoother applied to event study figures.
 
 \medskip
 
-The key distinctions of the Kalman smoother relative to these baselines are: (i) it uses the known $\sigma_t$ to adapt smoothing intensity period by period, unlike LOESS or James--Stein; (ii) it respects the temporal ordering of $\hat{\beta}_t$, unlike EB or James--Stein which treat periods as exchangeable; (iii) it jointly estimates the derivative $\Delta\beta_t$, unlike all alternatives; and (iv) it does not impose a parametric functional form on $\beta_t$.
+The key distinctions of the Kalman smoother relative to these baselines are: (i) it uses the known $\sigma_t$ to adapt smoothing intensity period by period, unlike Savitzky--Golay or James--Stein; (ii) it respects the temporal ordering of $\hat{\beta}_t$, unlike EB or James--Stein which treat periods as exchangeable; (iii) it jointly estimates the derivative $\Delta\beta_t$, unlike all alternatives; and (iv) it does not impose a parametric functional form on $\beta_t$.
 
 \section{Inference}\label{sec:inference}
 
@@ -129,11 +129,11 @@ We set $T_{\rm pre} = T_{\rm post} = 12$. Treatment effects follow five patterns
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{../figs/paper_fig1.png}
-\caption{Event study estimates for four treatment effect patterns. Top: level. Bottom: derivative. Gray = raw $\hat{\beta}_t$ with 95\% CIs. Orange = LOESS. Blue = Kalman smoother with 95\% posterior bands. Dashed black = truth. Red vertical line = treatment date.}
+\caption{Event study estimates for four treatment effect patterns. Top: level. Bottom: derivative. Gray = raw $\hat{\beta}_t$ with 95\% CIs. Orange = Savitzky--Golay. Blue = Kalman smoother with 95\% posterior bands. Dashed black = truth. Red vertical line = treatment date.}
 \label{fig:example}
 \end{figure}
 
-The derivative panels in Figure~\ref{fig:example} are particularly striking: the raw first differences (gray) are pure noise, LOESS (orange) oscillates wildly, while the Kalman slope (blue) tracks the true $\Delta\beta_t$ closely.
+The derivative panels in Figure~\ref{fig:example} are particularly striking: the raw first differences (gray) are pure noise, Savitzky--Golay (orange) oscillates wildly, while the Kalman slope (blue) tracks the true $\Delta\beta_t$ closely.
 
 \subsection{Estimation Efficiency}
 

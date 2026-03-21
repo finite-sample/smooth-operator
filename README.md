@@ -14,7 +14,7 @@ Event study designs estimate period-specific treatment effects β̂\_t with know
 
 ## Why This Works
 
-1. **The Kalman gain adapts to local precision.** When a period's β̂\_t has a large SE (few observations, noisy outcome), the smoother trusts the trend model. When the SE is tight, it trusts the data. Fixed-window smoothers (LOESS, Savitzky–Golay) cannot do this.
+1. **The Kalman gain adapts to local precision.** When a period's β̂\_t has a large SE (few observations, noisy outcome), the smoother trusts the trend model. When the SE is tight, it trusts the data. Fixed-window smoothers (Savitzky–Golay, splines) cannot do this.
 
 2. **Joint estimation of level and derivative.** The state vector is \[β\_t, Δβ\_t\]. The smoother gives you the rate of change of the treatment effect for free — and with 96–98% lower MSE than finite-differencing the raw estimates.
 
@@ -112,11 +112,11 @@ Our approach is complementary to Rambachan–Roth: they ask "how sensitive are c
 
 - **Process noise Q.** The choice of Q = diag(q\_ℓ, q\_s) is a tuning parameter analogous to bandwidth in nonparametric regression. We provide recommended defaults and urge sensitivity analysis. Marginal likelihood or cross-validation selection of Q is a natural extension.
 
-- **KS Wald test can be mildly oversized.** At (N=200, σ=2.0), the bootstrap-calibrated KS Wald test rejects at 7.9% instead of 5%. Increasing B from 499 to 999+ resolves this. The derivative test is correctly sized across all configurations.
+- **KS derivative test can be mildly oversized.** At (N=200, σ=2.0), the bootstrap-calibrated Kalman derivative test rejects at 6.3% instead of 5%. Increasing B from 499 to 999+ resolves this. The Kalman Wald test is correctly sized across all configurations.
 
 ## Origin
 
-This project started from exploring whether the [`incline`](https://github.com/finite-sample/incline) package (Savitzky–Golay and spline smoothing for noisy time series) could improve neural network gradient estimation. That exploration led to a systematic comparison of smoothing methods (Kalman, SG, LOESS, local polynomial) for online vs. retrospective estimation, which revealed that the Kalman filter's adaptive noise weighting is critical for problems where the signal-to-noise ratio varies — and that applied econometrics, despite being full of such problems, barely uses it.
+This project started from exploring whether the [`incline`](https://github.com/finite-sample/incline) package (Savitzky–Golay and spline smoothing for noisy time series) could improve neural network gradient estimation. That exploration led to a systematic comparison of smoothing methods (Kalman, Savitzky-Golay, local polynomial) for online vs. retrospective estimation, which revealed that the Kalman filter's adaptive noise weighting is critical for problems where the signal-to-noise ratio varies — and that applied econometrics, despite being full of such problems, barely uses it.
 
 ## License
 

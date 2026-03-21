@@ -46,7 +46,7 @@ class KalmanSmoother:
         T = len(bhat)
         F, H, Q = self.F, self.H, self.Q
         x = np.array([bhat[0], 0.0])
-        P = np.diag([se[0]**2, Q[1, 1] * 10])
+        P = np.diag([se[0]**2 * 100, Q[1, 1] * 100])
 
         xf, Pf, xp, Pp = [], [], [], []
         for t in range(T):
@@ -59,7 +59,8 @@ class KalmanSmoother:
             S = H @ Ppr @ H.T + R
             K = Ppr @ H.T / S[0, 0]
             x = xpr + K.flatten() * (bhat[t] - (H @ xpr)[0])
-            P = (np.eye(2) - K @ H) @ Ppr
+            IKH = np.eye(2) - K @ H
+            P = IKH @ Ppr @ IKH.T + K @ R @ K.T
             xf.append(x.copy()); Pf.append(P.copy())
 
         xs = [xf[-1].copy()]; Ps = [Pf[-1].copy()]
@@ -82,14 +83,14 @@ class KalmanSmoother:
 # COMPETITIVE BASELINES
 # ══════════════════════════════════════════════════════════════════════════════
 
-def loess_smooth(bhat, span=0.3):
+def savgol_smooth(bhat, span=0.3):
     T = len(bhat)
     w = max(5, int(T * span))
     if w % 2 == 0:
         w += 1
     w = min(w, T - 2)
     if w < 5:
-        return bhat.copy(), np.gradient(bhat)
+        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
     return savgol_filter(bhat, w, 3), savgol_filter(bhat, w, 3, deriv=1)
 
 
@@ -103,7 +104,7 @@ def parametric_linear(bhat, se, T_pre):
     swty = (pre_w * pre_t * pre_b).sum()
     denom = sw * swtt - swt**2
     if abs(denom) < 1e-15:
-        return bhat.copy(), np.gradient(bhat)
+        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
     b = (sw * swty - swt * swy) / denom
     a = (swy - b * swt) / sw
     return a + b * t, np.full(T, b)
@@ -114,13 +115,13 @@ def james_stein(bhat, se, T_pre):
     T = len(bhat)
     p = T_pre
     if p <= 2:
-        return bhat.copy(), np.gradient(bhat)
+        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
     sigma2 = np.mean(se[:T_pre]**2)
     sum_b2 = np.sum(bhat[:T_pre]**2)
     B = max(0, 1 - (p - 2) * sigma2 / sum_b2)
     shrunk = bhat.copy()
     shrunk[:T_pre] = B * bhat[:T_pre]
-    return shrunk, np.gradient(shrunk)
+    return shrunk, np.diff(shrunk, prepend=shrunk[0])
 
 
 def empirical_bayes(bhat, se, T_pre):
@@ -135,7 +136,7 @@ def empirical_bayes(bhat, se, T_pre):
     for t in range(T_pre, T):
         w = tau2_all / (tau2_all + se[t]**2) if tau2_all > 0 else 0
         shrunk[t] = w * bhat[t]
-    return shrunk, np.gradient(shrunk)
+    return shrunk, np.diff(shrunk, prepend=shrunk[0])
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -211,8 +212,19 @@ def test_parametric_slope(bhat, se, T_pre, _ks):
 
 
 def test_eb_wald(bhat, se, T_pre, _ks):
-    shrunk, _ = empirical_bayes(bhat, se, T_pre)
-    return np.sum((shrunk[:T_pre] / se[:T_pre])**2)
+    tau2 = max(0, np.var(bhat[:T_pre]) - np.mean(se[:T_pre]**2))
+    shrunk = bhat[:T_pre].copy()
+    se_post = np.zeros(T_pre)
+    for t in range(T_pre):
+        if tau2 > 0:
+            w = tau2 / (tau2 + se[t]**2)
+            shrunk[t] = w * bhat[t]
+            se_post[t] = np.sqrt(tau2 * se[t]**2 / (tau2 + se[t]**2))
+        else:
+            shrunk[t] = 0.0
+            se_post[t] = se[t]
+    se_post = np.maximum(se_post, 1e-12)
+    return np.sum((shrunk / se_post)**2)
 
 
 def test_kalman_wald(bhat, se, T_pre, ks):
@@ -262,20 +274,20 @@ CONFIGS = [
 ]
 
 METHOD_NAMES = ["Raw", "Parametric linear", "James-Stein", "Empirical Bayes",
-                "LOESS", "Kalman smoother"]
+                "Savitzky-Golay", "Kalman smoother"]
 
 
 def apply_method(mname, bhat, se, T_pre, ks):
     if mname == "Raw":
-        return bhat.copy(), np.gradient(bhat)
+        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
     elif mname == "Parametric linear":
         return parametric_linear(bhat, se, T_pre)
     elif mname == "James-Stein":
         return james_stein(bhat, se, T_pre)
     elif mname == "Empirical Bayes":
         return empirical_bayes(bhat, se, T_pre)
-    elif mname == "LOESS":
-        return loess_smooth(bhat)
+    elif mname == "Savitzky-Golay":
+        return savgol_smooth(bhat)
     elif mname == "Kalman smoother":
         lvl, slp, _, _, _ = ks.smooth(bhat, se)
         return lvl, slp
@@ -293,7 +305,7 @@ t1_rows = []
 for n, sigma, clabel in CONFIGS:
     for pattern in PATTERNS:
         bt = true_effect(T_PRE, T_POST, pattern)
-        td = np.gradient(bt)
+        td = np.diff(bt, prepend=bt[0])
         mse_l = {m: [] for m in METHOD_NAMES}
         mse_d = {m: [] for m in METHOD_NAMES}
 
@@ -322,10 +334,10 @@ t1.to_csv(f"{OUT_TABS}/table1_mse.csv", index=False)
 def write_table1_tex(df, path):
     sub = df[(df["n"] == 200) & (df["sigma"] == 1.0)]
     methods = ["Raw", "Parametric linear", "James-Stein", "Empirical Bayes",
-               "LOESS", "Kalman smoother"]
+               "Savitzky-Golay", "Kalman smoother"]
     short = {"Raw": "Raw", "Parametric linear": "Param.\\ lin.",
              "James-Stein": "J--S", "Empirical Bayes": "EB",
-             "LOESS": "LOESS", "Kalman smoother": "Kalman"}
+             "Savitzky-Golay": "S--G", "Kalman smoother": "Kalman"}
     pats = ["no effect", "gradual", "immediate", "fadeout", "anticipation"]
     pat_label = {"no effect": "No effect", "gradual": "Gradual",
                  "immediate": "Immediate", "fadeout": "Fadeout",
@@ -488,7 +500,7 @@ for ql, qs in Q_CONFIGS:
     sm = KalmanSmoother(ql, qs)
     for pattern in ["no effect", "gradual", "anticipation"]:
         bt = true_effect(T_PRE, T_POST, pattern)
-        td = np.gradient(bt)
+        td = np.diff(bt, prepend=bt[0])
         ml, md = [], []
         for sim in range(N_SIMS):
             rng = np.random.RandomState(sim)
@@ -535,15 +547,15 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     bt = true_effect(T_PRE, T_POST, pattern)
     bh, se = simulate_bhat(bt, 200, 1.0, rng)
     lvl, slp, lse, sse, _ = KS.smooth(bh, se)
-    ll, ld = loess_smooth(bh)
+    ll, ld = savgol_smooth(bh)
     t = np.arange(len(bh)) - T_PRE
-    td = np.gradient(bt)
+    td = np.diff(bt, prepend=bt[0])
 
     ax = axes[0, i]
     ax.fill_between(t, bh - 1.96 * se, bh + 1.96 * se, alpha=0.12, color="gray")
     ax.scatter(t, bh, s=15, color="gray", alpha=0.5, zorder=3)
     ax.plot(t, bt, "k--", lw=2, label="True $\\beta_t$")
-    ax.plot(t, ll, color="#f28e2b", lw=1.5, alpha=0.8, label="LOESS")
+    ax.plot(t, ll, color="#f28e2b", lw=1.5, alpha=0.8, label="Savitzky-Golay")
     ax.plot(t, lvl, color="#4e79a7", lw=2, zorder=4, label="Kalman (RTS)")
     ax.fill_between(t, lvl - 1.96 * lse, lvl + 1.96 * lse, alpha=0.15, color="#4e79a7")
     ax.axvline(0, color="red", ls=":", lw=1, alpha=0.5)
@@ -555,9 +567,9 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     ax.grid(True, alpha=0.2)
 
     ax = axes[1, i]
-    ax.scatter(t, np.gradient(bh), s=10, color="gray", alpha=0.4)
+    ax.scatter(t, np.diff(bh, prepend=bh[0]), s=10, color="gray", alpha=0.4)
     ax.plot(t, td, "k--", lw=2, label="True $\\Delta\\beta_t$")
-    ax.plot(t, ld, color="#f28e2b", lw=1.5, alpha=0.8, label="LOESS")
+    ax.plot(t, ld, color="#f28e2b", lw=1.5, alpha=0.8, label="Savitzky-Golay")
     ax.plot(t, slp, color="#4e79a7", lw=2, zorder=4, label="Kalman slope")
     ax.fill_between(t, slp - 1.96 * sse, slp + 1.96 * sse, alpha=0.15, color="#4e79a7")
     ax.axvline(0, color="red", ls=":", lw=1, alpha=0.5)
@@ -568,7 +580,7 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
         ax.legend(fontsize=7)
     ax.grid(True, alpha=0.2)
 
-plt.suptitle("Figure 1: Event Study Estimates --- Raw, LOESS, and Kalman Smoother",
+plt.suptitle("Figure 1: Event Study Estimates --- Raw, Savitzky-Golay, and Kalman Smoother",
              fontsize=14, y=1.01)
 plt.tight_layout()
 plt.savefig(f"{OUT_FIG}/paper_fig1.png", dpi=200, bbox_inches="tight")
@@ -580,11 +592,11 @@ print("\nSaved paper_fig1.png")
 fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
 colors = {"Raw": "#999999", "Parametric linear": "#f28e2b",
           "James-Stein": "#59a14f", "Empirical Bayes": "#b07aa1",
-          "LOESS": "#edc949", "Kalman smoother": "#4e79a7"}
+          "Savitzky-Golay": "#edc949", "Kalman smoother": "#4e79a7"}
 
 # (a) Level MSE by method, gradual pattern, across configs
 ax = axes[0]
-base_methods = ["Raw", "James-Stein", "Empirical Bayes", "LOESS", "Kalman smoother"]
+base_methods = ["Raw", "James-Stein", "Empirical Bayes", "Savitzky-Golay", "Kalman smoother"]
 x = np.arange(len(CONFIGS))
 w = 0.15
 for j, m in enumerate(base_methods):
