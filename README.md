@@ -1,4 +1,4 @@
-## Smoother Trends, Sharper Tests: Optimal Filtering of Event Study Estimates
+## Smoother Trends, Clearer Dynamics: Optimal Filtering of Event Study Estimates
 
 Event study designs estimate period-specific treatment effects β̂\_t with known standard errors from two-way fixed effects regressions. We treat the β̂\_t sequence as observations from a local linear trend state-space model and apply the Rauch–Tung–Striebel (Kalman) smoother to recover the treatment effect trajectory and its derivative. The approach uses the known, heteroskedastic regression standard errors as observation noise — a structural advantage over generic smoothing methods.
 
@@ -6,19 +6,19 @@ Event study designs estimate period-specific treatment effects β̂\_t with know
 
 | Metric | Improvement |
 |---|---|
-| Level MSE (β̂\_t vs true β\_t) | 62–82% reduction vs raw estimates |
-| Derivative MSE (Δβ̂\_t vs true Δβ\_t) | 77–98% reduction vs raw estimates |
-| Parallel trends power (anticipation) | 61.1% vs 9.0% (raw Wald), bootstrap-calibrated at 5% |
-| Parallel trends power (small pretrend) | 27.6% vs 4.8% (raw Wald) |
-| Size under null | 5.2% (correctly sized with bootstrap calibration) |
+| Level MSE (β̂\_t vs true β\_t) | 80% reduction vs raw estimates |
+| Derivative MSE (Δβ̂\_t vs true Δβ\_t) | 98% reduction vs raw estimates |
+| Parallel trends power (anticipation) | 13.3% vs 9.0% (raw Wald), bootstrap-calibrated at 5% |
+| Parallel trends power (small pretrend) | 6.3% vs 4.8% (raw Wald) |
+| Size under null | 4.2% (correctly sized with bootstrap calibration) |
 
 ## Why This Works
 
 1. **The Kalman gain adapts to local precision.** When a period's β̂\_t has a large SE (few observations, noisy outcome), the smoother trusts the trend model. When the SE is tight, it trusts the data. Fixed-window smoothers (Savitzky–Golay, splines) cannot do this.
 
-2. **Joint estimation of level and derivative.** The state vector is \[β\_t, Δβ\_t\]. The smoother gives you the rate of change of the treatment effect for free — and with 96–98% lower MSE than finite-differencing the raw estimates.
+2. **Joint estimation of level and derivative.** The state vector is \[β\_t, Δβ\_t\]. The smoother gives you the rate of change of the treatment effect for free — and with 98% lower MSE than finite-differencing the raw estimates.
 
-3. **The derivative-based parallel trends test.** Rather than testing whether pre-treatment β̂\_t are jointly zero (low power because the estimates are noisy), we test whether the smoothed Δβ̂\_t are jointly zero. A trending pre-treatment violation is far more visible in the slope than in the level.
+3. **The derivative-based parallel trends test.** Rather than testing whether pre-treatment β̂\_t are jointly zero (low power because the estimates are noisy), we test whether the smoothed Δβ̂\_t are jointly zero. The test achieves correct size and modest power improvements over the raw Wald test.
 
 ## Repository Structure
 
@@ -102,7 +102,7 @@ This paper sits at the intersection of two literatures that haven't talked to ea
 
 **State-space econometrics**: Harvey (1989), Durbin & Koopman (2012) develop the Kalman filter/smoother framework. Harvey (1985) shows the HP filter is a special case. None apply it to event study coefficient sequences.
 
-Our approach is complementary to Rambachan–Roth: they ask "how sensitive are conclusions to bounded violations?" We ask "can we detect violations more powerfully?" The Kalman-smoothed estimates could serve as inputs to their sensitivity framework.
+Our approach is complementary to Rambachan–Roth: they ask "how sensitive are conclusions to bounded violations?" We provide better estimates of the treatment effect trajectory. The Kalman-smoothed estimates could serve as inputs to their sensitivity framework.
 
 ## Limitations
 
@@ -112,7 +112,7 @@ Our approach is complementary to Rambachan–Roth: they ask "how sensitive are c
 
 - **Process noise Q.** The choice of Q = diag(q\_ℓ, q\_s) is a tuning parameter analogous to bandwidth in nonparametric regression. We provide recommended defaults and urge sensitivity analysis. Marginal likelihood or cross-validation selection of Q is a natural extension.
 
-- **KS derivative test can be mildly oversized.** At (N=200, σ=2.0), the bootstrap-calibrated Kalman derivative test rejects at 6.3% instead of 5%. Increasing B from 499 to 999+ resolves this. The Kalman Wald test is correctly sized across all configurations.
+- **Test power is modest.** With proper pre-only smoothing (required to avoid backward propagation of post-treatment signal), the Kalman-based tests achieve only modest power improvements over the raw Wald test. The main contribution is in estimation, not hypothesis testing.
 
 ## Origin
 

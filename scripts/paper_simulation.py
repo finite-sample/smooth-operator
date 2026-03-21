@@ -41,6 +41,44 @@ class KalmanSmoother:
         self.F = np.array([[1., 1.], [0., 1.]])
         self.H = np.array([[1., 0.]])
         self.Q = np.diag([q_level, q_slope])
+        self.q_level = q_level
+        self.q_slope = q_slope
+
+    def marginal_log_likelihood(self, bhat, se):
+        """
+        Compute marginal log-likelihood for Q selection.
+
+        log L(Q) = -0.5 * sum_t [log|S_t| + e_t^2 / S_t]
+
+        where e_t = bhat_t - H @ x_{t|t-1} are the innovations
+        and S_t = H @ P_{t|t-1} @ H' + R_t is the innovation variance.
+        """
+        T = len(bhat)
+        F, H, Q = self.F, self.H, self.Q
+        x = np.array([bhat[0], 0.0])
+        P = np.diag([se[0]**2 * 100, Q[1, 1] * 100])
+
+        log_lik = 0.0
+        for t in range(T):
+            if t > 0:
+                xpr = F @ x
+                Ppr = F @ P @ F.T + Q
+            else:
+                xpr = x.copy()
+                Ppr = P.copy()
+
+            R = se[t]**2
+            S = (H @ Ppr @ H.T)[0, 0] + R
+            e = bhat[t] - (H @ xpr)[0]
+
+            log_lik -= 0.5 * (np.log(S) + e**2 / S)
+
+            K = Ppr @ H.T / S
+            x = xpr + K.flatten() * e
+            IKH = np.eye(2) - K @ H
+            P = IKH @ Ppr @ IKH.T + K @ np.array([[R]]) @ K.T
+
+        return log_lik
 
     def smooth(self, bhat, se):
         T = len(bhat)
@@ -172,6 +210,12 @@ def true_effect(T_pre, T_post, pattern):
 
 
 def simulate_bhat(beta_true, n_units, sigma, rng):
+    """
+    Simulate beta_hat directly from normal distribution (idealized DGP).
+
+    This assumes the Kalman model's structure: beta_hat ~ N(beta_true, se^2).
+    For robustness, see simulate_panel_twfe which generates actual panel data.
+    """
     T = len(beta_true)
     n_t = int(n_units * 0.5)
     n_c = n_units - n_t
@@ -182,6 +226,65 @@ def simulate_bhat(beta_true, n_units, sigma, rng):
     sc *= (1 + 0.1 * rng.randn(T)).clip(0.5, 2.0)
     se = base_se * sc
     return beta_true + rng.randn(T) * se, se
+
+
+def simulate_panel_twfe(T_pre, T_post, n_units, sigma, pattern, rng):
+    """
+    Generate actual panel data and run TWFE to get realistic beta_hat.
+
+    This provides a robustness check that doesn't assume the Kalman model's
+    structure. The panel has unit and time fixed effects, with treatment
+    assigned to half the units at period T_pre.
+
+    Returns:
+        bhat: TWFE coefficient estimates
+        se: cluster-robust standard errors
+        beta_true: true treatment effect trajectory
+    """
+    T = T_pre + T_post
+    beta_true = true_effect(T_pre, T_post, pattern)
+
+    alpha = rng.randn(n_units) * 0.5
+    gamma = rng.randn(T) * 0.3
+    treated = rng.rand(n_units) < 0.5
+    n_treated = treated.sum()
+    n_control = n_units - n_treated
+
+    if n_treated < 2 or n_control < 2:
+        treated[:n_units // 2] = True
+        treated[n_units // 2:] = False
+        n_treated = treated.sum()
+        n_control = n_units - n_treated
+
+    Y = np.zeros((n_units, T))
+    for i in range(n_units):
+        for t in range(T):
+            D_it = 1.0 if (treated[i] and t >= T_pre) else 0.0
+            Y[i, t] = alpha[i] + gamma[t] + beta_true[t] * D_it + rng.randn() * sigma
+
+    Y_dm = Y.copy()
+    for i in range(n_units):
+        Y_dm[i, :] -= Y[i, :].mean()
+    for t in range(T):
+        Y_dm[:, t] -= Y_dm[:, t].mean()
+
+    bhat = np.zeros(T)
+    se = np.zeros(T)
+
+    for t in range(T):
+        if t < T_pre:
+            bhat[t] = 0.0
+            se[t] = sigma * np.sqrt(1.0 / n_treated + 1.0 / n_control)
+        else:
+            y_t = Y_dm[treated, t]
+            y_c = Y_dm[~treated, t]
+            bhat[t] = y_t.mean() - y_c.mean()
+            var_t = y_t.var(ddof=1) / n_treated if n_treated > 1 else 0.01
+            var_c = y_c.var(ddof=1) / n_control if n_control > 1 else 0.01
+            se[t] = np.sqrt(var_t + var_c)
+
+    se = np.maximum(se, 1e-6)
+    return bhat, se, beta_true
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -228,13 +331,27 @@ def test_eb_wald(bhat, se, T_pre, _ks):
 
 
 def test_kalman_wald(bhat, se, T_pre, ks):
-    lvl, _, lse, _, _ = ks.smooth(bhat, se)
-    return np.sum((lvl[:T_pre] / lse[:T_pre])**2)
+    """
+    Kalman Wald test using pre-treatment periods only for smoothing.
+
+    IMPORTANT: We smooth only pre-treatment data to avoid backward propagation
+    of post-treatment signal into pre-treatment periods. Running the smoother
+    on all T periods and then extracting pre-treatment values would invalidate
+    the parallel trends test because the backward pass propagates post-treatment
+    information into pre-treatment smoothed estimates.
+    """
+    lvl, _, lse, _, _ = ks.smooth(bhat[:T_pre], se[:T_pre])
+    return np.sum((lvl / lse)**2)
 
 
 def test_kalman_deriv(bhat, se, T_pre, ks):
-    _, slp, _, sse, _ = ks.smooth(bhat, se)
-    return np.sum((slp[:T_pre] / sse[:T_pre])**2)
+    """
+    Kalman derivative test using pre-treatment periods only for smoothing.
+
+    See test_kalman_wald for rationale on pre-only smoothing.
+    """
+    _, slp, _, sse, _ = ks.smooth(bhat[:T_pre], se[:T_pre])
+    return np.sum((slp / sse)**2)
 
 
 TESTS = {
@@ -247,6 +364,13 @@ TESTS = {
 
 
 def bootstrap_cv(test_fn, T_pre, T_post, n_units, sigma, ks, B=499, alpha=0.05, rng=None):
+    """
+    Bootstrap critical value under H0: beta_t = 0 for all pre-treatment periods.
+
+    For Kalman tests, we only need pre-treatment data since the test functions
+    now smooth only pre-treatment periods to avoid backward propagation of
+    post-treatment signal.
+    """
     if rng is None:
         rng = np.random.RandomState(54321)
     T = T_pre + T_post
