@@ -95,6 +95,10 @@ Under Assumptions~\ref{a:normal}--\ref{a:smooth}, and given the process noise $\
 The result is conditional on the assumed $\mathbf{Q}$. With misspecified $\mathbf{Q}$ (the practical case, since $\mathbf{Q}$ is a tuning parameter), the smoother is MMSE for the assumed model, which may differ from the true data-generating process. Section~\ref{sec:sensitivity} quantifies the robustness to $\mathbf{Q}$ misspecification.
 \end{remark}
 
+\begin{remark}[Linear vs.\ Global Optimality]
+The Kalman smoother is the minimum MSE \emph{linear} estimator under the state-space model, regardless of the error distribution, requiring only finite second moments. It is also the global minimum MSE estimator (among all estimators, linear or nonlinear) if and only if all noises are Gaussian. With non-Gaussian errors (e.g., heavy tails), nonlinear estimators such as particle filters could in principle achieve lower MSE, though the practical gains in event study applications are likely small given CLT-based normality of $\hat{\beta}_t$ when the number of clusters is moderate.
+\end{remark}
+
 \begin{remark}[Estimand Unchanged]
 The smoothed estimate $\hat{\beta}^{\rm KS}_t$ targets the same period-specific average treatment effect as the raw $\hat{\beta}_t$. Smoothing is a shrinkage estimator that improves MSE under the smoothness prior without changing the estimand. The causal interpretation is unchanged: $\beta_t$ remains the ATT in period $t$.
 \end{remark}
@@ -236,6 +240,8 @@ We recommend the following diagnostics before applying the Kalman smoother.
 
 \paragraph{Smoothness.} Plot the standardized innovations $e_t = (\hat{\beta}_t - \mathbf{H} \hat{\mathbf{x}}_{t|t-1}) / \sqrt{S_t}$ from the Kalman filter forward pass. Under correct specification, these should be approximately i.i.d.\ $N(0,1)$. Positive autocorrelation in $e_t$ suggests $\mathbf{Q}$ is too small (undersmoothing); negative autocorrelation suggests $\mathbf{Q}$ is too large.
 
+\paragraph{Formal specification tests.} Three standard tests formalize the visual diagnostics. The Ljung-Box test detects autocorrelation in standardized innovations; rejection suggests $\mathbf{Q}$ misspecification. The Jarque-Bera test detects non-normality; heavy tails indicate that robust Kalman variants (replacing squared loss with Huber loss) may improve robustness. A CUSUM test on cumulative innovations detects structural instability; sustained departures suggest the smoothness assumption is violated by discrete jumps. With $T \approx 24$ periods, power for these tests is limited, so we recommend them as supplements to visual inspection rather than formal gatekeepers.
+
 \paragraph{$\mathbf{Q}$ selection via marginal likelihood.} The marginal log-likelihood
 \begin{equation}
 \log L(\mathbf{Q}) = -\frac{1}{2} \sum_{t=1}^T \left( \log S_t + e_t^2 / S_t \right)
@@ -250,6 +256,8 @@ can be maximized over $\mathbf{Q}$ to select the process noise automatically, el
 \paragraph{The smoothness prior and sharp effects.} For the immediate pattern, the smoother still reduces level MSE by 70\%, but attenuates the jump and propagates some post-treatment signal backward. The bootstrap calibration accounts for this and maintains correct size.
 
 \paragraph{Independence across periods.} Assumption~\ref{a:normal} requires independence of $\hat{\beta}_t$ across $t$. Extensions incorporating correlated observation noise are straightforward but require estimating the autocorrelation.
+
+\paragraph{Heavy-tailed errors.} If the Q-Q diagnostic reveals fat tails or the Jarque-Bera test rejects normality, the Kalman smoother may give excessive weight to outlying $\hat{\beta}_t$. Robust extensions replacing squared loss with Huber or $L_1$ loss are available \citep[see][Chapter 9]{durbin2012time} but rarely necessary for event study applications where $\hat{\beta}_t$ derives from regression on many clusters.
 
 \paragraph{Why not empirical Bayes?} EB shrinks toward zero. This is optimal under no effect but harmful under treatment: it pulls the trajectory toward the wrong target. The Kalman smoother shrinks toward a smooth trajectory---a more appropriate prior when treatment effects are nonzero but evolving.
 
