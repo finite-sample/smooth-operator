@@ -25,13 +25,13 @@ Event study designs estimate period-specific treatment effects β̂\_t with know
 ```
 ms/
   smoother_trends_sharper_tests.tex   # LaTeX source
-  smoother_trends_sharper_tests.pdf   # Compiled paper (13 pages, 4 figures, 3 tables)
+  smoother_trends_sharper_tests.pdf   # Compiled paper (14 pages, 4 figures, 3 tables)
 
 figs/
-  paper_fig1.png                      # Fig 1: Illustrative examples (4 DGPs)
-  paper_fig2.png                      # Fig 2: MSE reduction summary
-  paper_fig3.png                      # Fig 3: Size and power
-  paper_fig4.png                      # Fig 4: Sensitivity to Q
+  paper_fig1.pdf                      # Fig 1: Illustrative examples (4 DGPs)
+  paper_fig2.pdf                      # Fig 2: MSE reduction summary
+  paper_fig3.pdf                      # Fig 3: Size and power
+  paper_fig4.pdf                      # Fig 4: Sensitivity to Q
 
 scripts/
   paper_simulation.py                 # Reproduces all tables and figures
@@ -56,7 +56,7 @@ python paper_simulation.py
 
 Takes ~5 minutes. Produces:
 - `tabs/table1_mse.csv`, `tabs/table2_size_power.csv`, `tabs/table3_sensitivity.csv`
-- `figs/paper_fig1.png` through `figs/paper_fig4.png`
+- `figs/paper_fig1.pdf` through `figs/paper_fig4.pdf`
 
 To compile the paper:
 
