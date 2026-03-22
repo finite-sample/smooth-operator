@@ -24,6 +24,11 @@ n,sigma,config,pattern,test,rejection
 200,1.0,"$N{=}200, \sigma{=}1$",immediate,EB Wald,0.059
 200,1.0,"$N{=}200, \sigma{=}1$",immediate,Kalman Wald,0.053
 200,1.0,"$N{=}200, \sigma{=}1$",immediate,Kalman deriv,0.042
+200,1.0,"$N{=}200, \sigma{=}1$",level_shift,Raw Wald,0.771
+200,1.0,"$N{=}200, \sigma{=}1$",level_shift,Parametric slope,0.149
+200,1.0,"$N{=}200, \sigma{=}1$",level_shift,EB Wald,0.313
+200,1.0,"$N{=}200, \sigma{=}1$",level_shift,Kalman Wald,0.96
+200,1.0,"$N{=}200, \sigma{=}1$",level_shift,Kalman deriv,0.256
 500,1.0,"$N{=}500, \sigma{=}1$",no effect,Raw Wald,0.052
 500,1.0,"$N{=}500, \sigma{=}1$",no effect,Parametric slope,0.07
 500,1.0,"$N{=}500, \sigma{=}1$",no effect,EB Wald,0.053
@@ -49,6 +54,11 @@ n,sigma,config,pattern,test,rejection
 500,1.0,"$N{=}500, \sigma{=}1$",immediate,EB Wald,0.053
 500,1.0,"$N{=}500, \sigma{=}1$",immediate,Kalman Wald,0.059
 500,1.0,"$N{=}500, \sigma{=}1$",immediate,Kalman deriv,0.066
+500,1.0,"$N{=}500, \sigma{=}1$",level_shift,Raw Wald,0.998
+500,1.0,"$N{=}500, \sigma{=}1$",level_shift,Parametric slope,0.337
+500,1.0,"$N{=}500, \sigma{=}1$",level_shift,EB Wald,0.631
+500,1.0,"$N{=}500, \sigma{=}1$",level_shift,Kalman Wald,1.0
+500,1.0,"$N{=}500, \sigma{=}1$",level_shift,Kalman deriv,0.643
 200,2.0,"$N{=}200, \sigma{=}2$",no effect,Raw Wald,0.048
 200,2.0,"$N{=}200, \sigma{=}2$",no effect,Parametric slope,0.073
 200,2.0,"$N{=}200, \sigma{=}2$",no effect,EB Wald,0.056
@@ -74,6 +84,11 @@ n,sigma,config,pattern,test,rejection
 200,2.0,"$N{=}200, \sigma{=}2$",immediate,EB Wald,0.056
 200,2.0,"$N{=}200, \sigma{=}2$",immediate,Kalman Wald,0.048
 200,2.0,"$N{=}200, \sigma{=}2$",immediate,Kalman deriv,0.07
+200,2.0,"$N{=}200, \sigma{=}2$",level_shift,Raw Wald,0.207
+200,2.0,"$N{=}200, \sigma{=}2$",level_shift,Parametric slope,0.101
+200,2.0,"$N{=}200, \sigma{=}2$",level_shift,EB Wald,0.096
+200,2.0,"$N{=}200, \sigma{=}2$",level_shift,Kalman Wald,0.494
+200,2.0,"$N{=}200, \sigma{=}2$",level_shift,Kalman deriv,0.121
 100,1.0,"$N{=}100, \sigma{=}1$",no effect,Raw Wald,0.048
 100,1.0,"$N{=}100, \sigma{=}1$",no effect,Parametric slope,0.064
 100,1.0,"$N{=}100, \sigma{=}1$",no effect,EB Wald,0.053
@@ -99,3 +114,8 @@ n,sigma,config,pattern,test,rejection
 100,1.0,"$N{=}100, \sigma{=}1$",immediate,EB Wald,0.053
 100,1.0,"$N{=}100, \sigma{=}1$",immediate,Kalman Wald,0.06
 100,1.0,"$N{=}100, \sigma{=}1$",immediate,Kalman deriv,0.051
+100,1.0,"$N{=}100, \sigma{=}1$",level_shift,Raw Wald,0.464
+100,1.0,"$N{=}100, \sigma{=}1$",level_shift,Parametric slope,0.13
+100,1.0,"$N{=}100, \sigma{=}1$",level_shift,EB Wald,0.163
+100,1.0,"$N{=}100, \sigma{=}1$",level_shift,Kalman Wald,0.796
+100,1.0,"$N{=}100, \sigma{=}1$",level_shift,Kalman deriv,0.16

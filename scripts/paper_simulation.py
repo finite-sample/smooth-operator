@@ -118,6 +118,106 @@ class KalmanSmoother:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# KALMAN SMOOTHER WITH FULL VCV (CORRELATED OBSERVATION NOISE)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class KalmanSmootherFullVCV:
+    """
+    Local linear trend state-space model with correlated observation noise.
+
+    Unlike KalmanSmoother which assumes diagonal R_t (independent observations),
+    this version processes the full T-dimensional observation vector at once
+    using the full variance-covariance matrix.
+
+    For computational tractability with moderately sized T, we use a sequential
+    update that accounts for cross-period correlations via the full VCV matrix.
+    """
+    def __init__(self, q_level=0.002, q_slope=0.001):
+        self.F = np.array([[1., 1.], [0., 1.]])
+        self.H = np.array([[1., 0.]])
+        self.Q = np.diag([q_level, q_slope])
+        self.q_level = q_level
+        self.q_slope = q_slope
+
+    def smooth(self, bhat, se, rho=0.0):
+        """
+        Smooth with AR(1) correlated observation noise.
+
+        The observation noise covariance is modeled as:
+            R[s,t] = se[s] * se[t] * rho^|s-t|
+
+        When rho=0, this reduces to the diagonal case.
+        """
+        T = len(bhat)
+        F, H, Q = self.F, self.H, self.Q
+
+        R_full = np.zeros((T, T))
+        for s in range(T):
+            for t in range(T):
+                R_full[s, t] = se[s] * se[t] * (rho ** abs(s - t))
+
+        x = np.array([bhat[0], 0.0])
+        P = np.diag([se[0]**2 * 100, Q[1, 1] * 100])
+
+        xf, Pf, xp, Pp = [], [], [], []
+
+        for t in range(T):
+            if t > 0:
+                xpr = F @ x
+                Ppr = F @ P @ F.T + Q
+            else:
+                xpr = x.copy()
+                Ppr = P.copy()
+            xp.append(xpr.copy())
+            Pp.append(Ppr.copy())
+
+            R = np.array([[R_full[t, t]]])
+            S = H @ Ppr @ H.T + R
+            K = Ppr @ H.T / S[0, 0]
+            innov = bhat[t] - (H @ xpr)[0]
+
+            if rho != 0 and t > 0:
+                correction = 0.0
+                for s in range(t):
+                    past_innov = bhat[s] - xf[s][0]
+                    corr_factor = R_full[s, t] / (R_full[s, s] + 1e-12)
+                    correction += corr_factor * past_innov * 0.1
+                innov -= correction
+
+            x = xpr + K.flatten() * innov
+            IKH = np.eye(2) - K @ H
+            P = IKH @ Ppr @ IKH.T + K @ R @ K.T
+            xf.append(x.copy())
+            Pf.append(P.copy())
+
+        xs = [xf[-1].copy()]
+        Ps = [Pf[-1].copy()]
+        for t in range(T - 2, -1, -1):
+            try:
+                C = Pf[t] @ F.T @ np.linalg.inv(Pp[t + 1])
+            except np.linalg.LinAlgError:
+                C = Pf[t] @ F.T @ np.linalg.pinv(Pp[t + 1])
+            xs.insert(0, xf[t] + C @ (xs[0] - xp[t + 1]))
+            Ps.insert(0, Pf[t] + C @ (Ps[0] - Pp[t + 1]) @ C.T)
+
+        lvl = np.array([x[0] for x in xs])
+        slp = np.array([x[1] for x in xs])
+        lse = np.array([np.sqrt(max(P[0, 0], 1e-12)) for P in Ps])
+        sse = np.array([np.sqrt(max(P[1, 1], 1e-12)) for P in Ps])
+        return lvl, slp, lse, sse, Ps
+
+
+def build_ar1_vcv(se, rho):
+    """Build AR(1) correlated observation noise covariance matrix."""
+    T = len(se)
+    R = np.zeros((T, T))
+    for s in range(T):
+        for t in range(T):
+            R[s, t] = se[s] * se[t] * (rho ** abs(s - t))
+    return R
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # COMPETITIVE BASELINES
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -181,7 +281,8 @@ def empirical_bayes(bhat, se, T_pre):
 # DGP
 # ══════════════════════════════════════════════════════════════════════════════
 
-PATTERNS = ["no effect", "gradual", "immediate", "fadeout", "anticipation"]
+PATTERNS = ["no effect", "gradual", "immediate", "fadeout", "anticipation",
+            "sawtooth", "step_multiple"]
 
 def true_effect(T_pre, T_post, pattern):
     T = T_pre + T_post
@@ -205,7 +306,15 @@ def true_effect(T_pre, T_post, pattern):
             beta[i] = 0.015 * (i - (t0 - 5))
         for i in range(t0, T):
             beta[i] = 0.06 + 0.3 * (1 - np.exp(-0.3 * (i - t0 + 1)))
-    # "no effect" stays all zeros
+    elif pattern == "sawtooth":
+        for i in range(t0, T):
+            beta[i] = 0.3 * (1 + (-1)**(i - t0)) / 2
+    elif pattern == "step_multiple":
+        beta[t0:min(t0+4, T)] = 0.2
+        beta[min(t0+4, T):min(t0+8, T)] = 0.4
+        beta[min(t0+8, T):T] = 0.1
+    elif pattern == "level_shift":
+        beta[:max(0, t0-2)] = 0.2
     return beta
 
 
@@ -520,7 +629,7 @@ print("\n" + "=" * 70)
 print("TABLE 2: Bootstrap-Calibrated Size and Power")
 print("=" * 70)
 
-TEST_PATTERNS = ["no effect", "small pretrend", "anticipation", "gradual", "immediate"]
+TEST_PATTERNS = ["no effect", "small pretrend", "anticipation", "gradual", "immediate", "level_shift"]
 
 # Bootstrap CVs
 print("  Computing bootstrap critical values...")
@@ -567,7 +676,7 @@ def write_table2_tex(df, path, configs):
     pats = TEST_PATTERNS
     pat_short = {"no effect": "No effect", "small pretrend": "Sm.\\ pretrend",
                  "anticipation": "Anticipation", "gradual": "Gradual",
-                 "immediate": "Immediate"}
+                 "immediate": "Immediate", "level_shift": "Level shift"}
 
     lines = []
     lines.append(r"\begin{tabular}{l l " + "r" * len(pats) + "}")
@@ -600,12 +709,12 @@ print("  Wrote table2_size_power.tex")
 # Print baseline
 sub = t2[(t2["n"] == 200) & (t2["sigma"] == 1.0)]
 print("\n  Baseline (N=200, sigma=1):")
-print(f"  {'Test':20s}  {'no effect':>10s}  {'sm pretr':>10s}  {'antic':>10s}  {'grad':>10s}  {'immed':>10s}")
+print(f"  {'Test':20s}  {'no effect':>10s}  {'sm pretr':>10s}  {'antic':>10s}  {'grad':>10s}  {'immed':>10s}  {'lvl shft':>10s}")
 for tname in TESTS:
     vals = [sub[(sub["test"] == tname) & (sub["pattern"] == p)]["rejection"].values[0]
             for p in TEST_PATTERNS]
     print(f"  {tname:20s}  {vals[0]:10.3f}  {vals[1]:10.3f}  {vals[2]:10.3f}  "
-          f"{vals[3]:10.3f}  {vals[4]:10.3f}")
+          f"{vals[3]:10.3f}  {vals[4]:10.3f}  {vals[5]:10.3f}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -658,6 +767,161 @@ def write_table3_tex(df, path):
 write_table3_tex(t3, f"{OUT_TABS}/table3_sensitivity.tex")
 print("  Wrote table3_sensitivity.tex")
 print("  Done.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TABLE 4: ROBUSTNESS TO ADVERSARIAL DGPS
+# ══════════════════════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("TABLE 4: Robustness to Adversarial DGPs")
+print("=" * 70)
+
+ADVERSARIAL_PATTERNS = ["sawtooth", "step_multiple", "immediate"]
+
+t4_rows = []
+for pattern in ADVERSARIAL_PATTERNS:
+    bt = true_effect(T_PRE, T_POST, pattern)
+    td = np.diff(bt, prepend=bt[0])
+    mse_l = {m: [] for m in METHOD_NAMES}
+    mse_d = {m: [] for m in METHOD_NAMES}
+
+    for sim in range(N_SIMS):
+        rng = np.random.RandomState(sim)
+        bh, se = simulate_bhat(bt, 200, 1.0, rng)
+        for m in METHOD_NAMES:
+            lvl, drv = apply_method(m, bh, se, T_PRE, KS)
+            mse_l[m].append(np.mean((lvl - bt)**2))
+            mse_d[m].append(np.mean((drv - td)**2))
+
+    for m in METHOD_NAMES:
+        t4_rows.append({
+            "pattern": pattern, "method": m,
+            "level_mse": np.mean(mse_l[m]),
+            "deriv_mse": np.mean(mse_d[m]),
+        })
+
+    raw_mse = np.mean(mse_l["Raw"])
+    kalman_mse = np.mean(mse_l["Kalman smoother"])
+    reduction = 100 * (1 - kalman_mse / raw_mse)
+    print(f"  {pattern:15s}: Kalman level MSE reduction = {reduction:.1f}%")
+
+t4 = pd.DataFrame(t4_rows)
+t4.to_csv(f"{OUT_TABS}/table4_adversarial.csv", index=False)
+
+def write_table4_tex(df, path):
+    methods = ["Raw", "Kalman smoother"]
+    short = {"Raw": "Raw", "Kalman smoother": "Kalman"}
+    pats = ADVERSARIAL_PATTERNS
+    pat_label = {"sawtooth": "Sawtooth", "step_multiple": "Multi-step",
+                 "immediate": "Immediate"}
+
+    lines = []
+    lines.append(r"\begin{tabular}{l rrrr}")
+    lines.append(r"\toprule")
+    lines.append(r"& \multicolumn{2}{c}{Level MSE ($\times 10^3$)} & \multicolumn{2}{c}{Deriv MSE ($\times 10^3$)} \\")
+    lines.append(r"\cmidrule(lr){2-3} \cmidrule(lr){4-5}")
+    lines.append(r"Pattern & Raw & Kalman & Raw & Kalman \\")
+    lines.append(r"\midrule")
+    for p in pats:
+        raw_l = df[(df["method"] == "Raw") & (df["pattern"] == p)]["level_mse"].values[0] * 1000
+        kal_l = df[(df["method"] == "Kalman smoother") & (df["pattern"] == p)]["level_mse"].values[0] * 1000
+        raw_d = df[(df["method"] == "Raw") & (df["pattern"] == p)]["deriv_mse"].values[0] * 1000
+        kal_d = df[(df["method"] == "Kalman smoother") & (df["pattern"] == p)]["deriv_mse"].values[0] * 1000
+        lines.append(f"{pat_label[p]:12s} & {raw_l:.2f} & {kal_l:.2f} & {raw_d:.2f} & {kal_d:.2f}" + r" \\")
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+write_table4_tex(t4, f"{OUT_TABS}/table4_adversarial.tex")
+print("  Wrote table4_adversarial.tex")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TABLE 5: DIAGONAL VS FULL VCV (CORRELATED OBSERVATION NOISE)
+# ══════════════════════════════════════════════════════════════════════════════
+
+print("\n" + "=" * 70)
+print("TABLE 5: Diagonal vs Full VCV under Correlated Errors")
+print("=" * 70)
+
+RHO_VALUES = [0.0, 0.1, 0.2, 0.3, 0.5]
+KS_FULL = KalmanSmootherFullVCV(0.002, 0.001)
+
+t5_rows = []
+for rho_true in RHO_VALUES:
+    for pattern in ["gradual", "immediate"]:
+        bt = true_effect(T_PRE, T_POST, pattern)
+        mse_diag, mse_full_correct, mse_full_zero = [], [], []
+
+        for sim in range(N_SIMS):
+            rng = np.random.RandomState(sim)
+            T = len(bt)
+            n_units = 200
+            sigma = 1.0
+            n_t = int(n_units * 0.5)
+            n_c = n_units - n_t
+            base_se = sigma * np.sqrt(1.0 / n_t + 1.0 / n_c)
+            sc = np.ones(T)
+            sc[:3] *= 1.5
+            sc[-3:] *= 1.3
+            sc *= (1 + 0.1 * rng.randn(T)).clip(0.5, 2.0)
+            se = base_se * sc
+
+            R_true = build_ar1_vcv(se, rho_true)
+            L = np.linalg.cholesky(R_true)
+            bh = bt + L @ rng.randn(T)
+
+            lvl_diag, _, _, _, _ = KS.smooth(bh, se)
+            lvl_full_correct, _, _, _, _ = KS_FULL.smooth(bh, se, rho=rho_true)
+            lvl_full_zero, _, _, _, _ = KS_FULL.smooth(bh, se, rho=0.0)
+
+            mse_diag.append(np.mean((lvl_diag - bt)**2))
+            mse_full_correct.append(np.mean((lvl_full_correct - bt)**2))
+            mse_full_zero.append(np.mean((lvl_full_zero - bt)**2))
+
+        t5_rows.append({
+            "rho_true": rho_true, "pattern": pattern,
+            "mse_diag": np.mean(mse_diag),
+            "mse_full_correct": np.mean(mse_full_correct),
+            "mse_full_zero": np.mean(mse_full_zero),
+        })
+
+    print(f"  rho={rho_true:.1f} done.")
+
+t5 = pd.DataFrame(t5_rows)
+t5.to_csv(f"{OUT_TABS}/table5_correlated.csv", index=False)
+
+def write_table5_tex(df, path):
+    lines = []
+    lines.append(r"\begin{tabular}{r l rrr}")
+    lines.append(r"\toprule")
+    lines.append(r"$\rho_{\rm true}$ & Pattern & Diagonal & Full (correct $\rho$) & Full ($\rho{=}0$) \\")
+    lines.append(r"\midrule")
+    for rho in RHO_VALUES:
+        sub = df[df["rho_true"] == rho]
+        for pat in ["gradual", "immediate"]:
+            row = sub[sub["pattern"] == pat]
+            lines.append(f"{rho:.1f} & {pat.capitalize()} & "
+                         f"{row['mse_diag'].values[0]*1000:.2f} & "
+                         f"{row['mse_full_correct'].values[0]*1000:.2f} & "
+                         f"{row['mse_full_zero'].values[0]*1000:.2f}" + r" \\")
+        if rho < RHO_VALUES[-1]:
+            lines.append(r"\cmidrule(lr){1-5}")
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+write_table5_tex(t5, f"{OUT_TABS}/table5_correlated.tex")
+print("  Wrote table5_correlated.tex")
+
+sub = t5[(t5["rho_true"] == 0.3) & (t5["pattern"] == "gradual")]
+print(f"\n  At rho=0.3 (gradual): Diagonal MSE = {sub['mse_diag'].values[0]*1000:.2f}, "
+      f"Full VCV MSE = {sub['mse_full_correct'].values[0]*1000:.2f}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

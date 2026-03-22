@@ -29,6 +29,18 @@ n,sigma,config,pattern,method,level_mse,deriv_mse
 200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Empirical Bayes,0.021747891510025846,0.009676226881957977
 200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Savitzky-Golay,0.010789513244905027,0.011984446453770748
 200,1.0,"$N{=}200, \sigma{=}1$",anticipation,Kalman smoother,0.0045470249975286545,0.0004640013415176628
+200,1.0,"$N{=}200, \sigma{=}1$",sawtooth,Raw,0.02464705771048058,0.046386405442977785
+200,1.0,"$N{=}200, \sigma{=}1$",sawtooth,Parametric linear,0.03785135739238098,0.04517628212026391
+200,1.0,"$N{=}200, \sigma{=}1$",sawtooth,James-Stein,0.01291323079311745,0.02469708614065934
+200,1.0,"$N{=}200, \sigma{=}1$",sawtooth,Empirical Bayes,0.011974128249051884,0.023680829308386712
+200,1.0,"$N{=}200, \sigma{=}1$",sawtooth,Savitzky-Golay,0.019303556610189197,0.05403937031712649
+200,1.0,"$N{=}200, \sigma{=}1$",sawtooth,Kalman smoother,0.015767707378772002,0.0452418489791341
+200,1.0,"$N{=}200, \sigma{=}1$",step_multiple,Raw,0.024647057710480577,0.046386405442977785
+200,1.0,"$N{=}200, \sigma{=}1$",step_multiple,Parametric linear,0.05057621141525871,0.007262253758919429
+200,1.0,"$N{=}200, \sigma{=}1$",step_multiple,James-Stein,0.01291323079311745,0.02469708614065934
+200,1.0,"$N{=}200, \sigma{=}1$",step_multiple,Empirical Bayes,0.014297141424338475,0.00835102371943045
+200,1.0,"$N{=}200, \sigma{=}1$",step_multiple,Savitzky-Golay,0.012609059988121434,0.01720677538976045
+200,1.0,"$N{=}200, \sigma{=}1$",step_multiple,Kalman smoother,0.0074833355926646455,0.0062332311963806
 500,1.0,"$N{=}500, \sigma{=}1$",no effect,Raw,0.009858823084192232,0.018554562177191116
 500,1.0,"$N{=}500, \sigma{=}1$",no effect,Parametric linear,0.005974848900816483,7.051284810556378e-05
 500,1.0,"$N{=}500, \sigma{=}1$",no effect,James-Stein,0.00516529231724698,0.009878834456263736
@@ -59,6 +71,18 @@ n,sigma,config,pattern,method,level_mse,deriv_mse
 500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Empirical Bayes,0.008576638676145016,0.006799735428095779
 500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Savitzky-Golay,0.004326043736173171,0.00482246666237924
 500,1.0,"$N{=}500, \sigma{=}1$",anticipation,Kalman smoother,0.0022666835453982437,0.00033426321529415057
+500,1.0,"$N{=}500, \sigma{=}1$",sawtooth,Raw,0.009858823084192232,0.018554562177191116
+500,1.0,"$N{=}500, \sigma{=}1$",sawtooth,Parametric linear,0.028736834206887118,0.045070512848105565
+500,1.0,"$N{=}500, \sigma{=}1$",sawtooth,James-Stein,0.00516529231724698,0.009878834456263736
+500,1.0,"$N{=}500, \sigma{=}1$",sawtooth,Empirical Bayes,0.005512570444724005,0.010963454711522616
+500,1.0,"$N{=}500, \sigma{=}1$",sawtooth,Savitzky-Golay,0.012835817326172646,0.04686137584164635
+500,1.0,"$N{=}500, \sigma{=}1$",sawtooth,Kalman smoother,0.012617567341206693,0.04538246114339775
+500,1.0,"$N{=}500, \sigma{=}1$",step_multiple,Raw,0.009858823084192232,0.018554562177191116
+500,1.0,"$N{=}500, \sigma{=}1$",step_multiple,Parametric linear,0.04137904437755617,0.007155514792235108
+500,1.0,"$N{=}500, \sigma{=}1$",step_multiple,James-Stein,0.00516529231724698,0.009878834456263735
+500,1.0,"$N{=}500, \sigma{=}1$",step_multiple,Empirical Bayes,0.005752329496067499,0.005328036507373434
+500,1.0,"$N{=}500, \sigma{=}1$",step_multiple,Savitzky-Golay,0.006132710365423383,0.010051891011223524
+500,1.0,"$N{=}500, \sigma{=}1$",step_multiple,Kalman smoother,0.004376666152596748,0.006011100990944839
 200,2.0,"$N{=}200, \sigma{=}2$",no effect,Raw,0.09858823084192232,0.18554562177191114
 200,2.0,"$N{=}200, \sigma{=}2$",no effect,Parametric linear,0.05974848900816483,0.000705128481055638
 200,2.0,"$N{=}200, \sigma{=}2$",no effect,James-Stein,0.0516529231724698,0.09878834456263734
@@ -89,6 +113,18 @@ n,sigma,config,pattern,method,level_mse,deriv_mse
 200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Empirical Bayes,0.055045386807980975,0.013986346478601046
 200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Savitzky-Golay,0.043108845250822155,0.04780191362435029
 200,2.0,"$N{=}200, \sigma{=}2$",anticipation,Kalman smoother,0.013700923775631986,0.000805482147209682
+200,2.0,"$N{=}200, \sigma{=}2$",sawtooth,Raw,0.09858823084192231,0.1855456217719111
+200,2.0,"$N{=}200, \sigma{=}2$",sawtooth,Parametric linear,0.08307695928884438,0.04570512848105564
+200,2.0,"$N{=}200, \sigma{=}2$",sawtooth,James-Stein,0.0516529231724698,0.09878834456263734
+200,2.0,"$N{=}200, \sigma{=}2$",sawtooth,Empirical Bayes,0.021454374600124525,0.0425778063148297
+200,2.0,"$N{=}200, \sigma{=}2$",sawtooth,Savitzky-Golay,0.051634505646579724,0.08990040958709647
+200,2.0,"$N{=}200, \sigma{=}2$",sawtooth,Kalman smoother,0.025113842196702124,0.04544246105300026
+200,2.0,"$N{=}200, \sigma{=}2$",step_multiple,Raw,0.09858823084192232,0.18554562177191114
+200,2.0,"$N{=}200, \sigma{=}2$",step_multiple,Parametric linear,0.09602666733459983,0.0077937384250333416
+200,2.0,"$N{=}200, \sigma{=}2$",step_multiple,James-Stein,0.0516529231724698,0.09878834456263735
+200,2.0,"$N{=}200, \sigma{=}2$",step_multiple,Empirical Bayes,0.029674509598842946,0.015300397175171017
+200,2.0,"$N{=}200, \sigma{=}2$",step_multiple,Savitzky-Golay,0.04496343568286746,0.0530049376503958
+200,2.0,"$N{=}200, \sigma{=}2$",step_multiple,Kalman smoother,0.0185693558923199,0.006790549242930037
 100,1.0,"$N{=}100, \sigma{=}1$",no effect,Raw,0.04929411542096116,0.09277281088595558
 100,1.0,"$N{=}100, \sigma{=}1$",no effect,Parametric linear,0.02987424450408242,0.000352564240527819
 100,1.0,"$N{=}100, \sigma{=}1$",no effect,James-Stein,0.0258264615862349,0.04939417228131868
@@ -119,3 +155,15 @@ n,sigma,config,pattern,method,level_mse,deriv_mse
 100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Empirical Bayes,0.03866072253055866,0.011254649077659053
 100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Savitzky-Golay,0.02156243231812599,0.02392287148310175
 100,1.0,"$N{=}100, \sigma{=}1$",anticipation,Kalman smoother,0.00785610689817842,0.0006065270007340715
+100,1.0,"$N{=}100, \sigma{=}1$",sawtooth,Raw,0.04929411542096116,0.09277281088595558
+100,1.0,"$N{=}100, \sigma{=}1$",sawtooth,Parametric linear,0.05296006145756245,0.04535256424052782
+100,1.0,"$N{=}100, \sigma{=}1$",sawtooth,James-Stein,0.0258264615862349,0.04939417228131868
+100,1.0,"$N{=}100, \sigma{=}1$",sawtooth,Empirical Bayes,0.01715845259709378,0.033988755429970624
+100,1.0,"$N{=}100, \sigma{=}1$",sawtooth,Savitzky-Golay,0.030081287614986744,0.06599584350096607
+100,1.0,"$N{=}100, \sigma{=}1$",sawtooth,Kalman smoother,0.0193148597349371,0.04529541160802088
+100,1.0,"$N{=}100, \sigma{=}1$",step_multiple,Raw,0.04929411542096116,0.09277281088595558
+100,1.0,"$N{=}100, \sigma{=}1$",step_multiple,Parametric linear,0.06577805306627027,0.007439628701029468
+100,1.0,"$N{=}100, \sigma{=}1$",step_multiple,James-Stein,0.0258264615862349,0.04939417228131868
+100,1.0,"$N{=}100, \sigma{=}1$",step_multiple,Empirical Bayes,0.022876272357415097,0.011170028598292239
+100,1.0,"$N{=}100, \sigma{=}1$",step_multiple,Savitzky-Golay,0.02339649463253091,0.02913720406357218
+100,1.0,"$N{=}100, \sigma{=}1$",step_multiple,Kalman smoother,0.011609250637270769,0.006465361605507889
