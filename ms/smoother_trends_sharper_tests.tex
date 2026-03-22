@@ -19,13 +19,13 @@
 
 \title{\textbf{Smooth Operator:}\\ Optimal Filtering of Event Study Estimates}
 \author{Gaurav Sood}
-\date{\today}
+\date{}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Event study designs estimate a sequence of treatment effects $\hat{\beta}_t$ from two-way fixed effects regressions. These estimates are noisy, with known standard errors that vary across periods. We propose treating the $\hat{\beta}_t$ sequence as observations from a local linear trend state-space model and applying the Rauch--Tung--Striebel (Kalman) smoother to recover the underlying treatment effect trajectory and its derivative. The Kalman smoother reduces level MSE by 70--80\% relative to raw estimates, substantially outperforming competitive baselines including James--Stein shrinkage (48\%), empirical Bayes (25\%), and Savitzky--Golay (56\%). The gains are largest for derivative estimation, where the Kalman smoother achieves 98\% MSE reduction versus 47\% for James--Stein and 74\% for Savitzky--Golay. Bootstrap-calibrated tests based on the Kalman-smoothed estimates achieve correct size and modest power improvements over the standard Wald test for detecting pre-trend violations.
+Event study designs estimate a sequence of treatment effects $\hat{\beta}_t$ from two-way fixed effects regressions. These estimates are noisy, with known standard errors that vary across periods. We propose treating the $\hat{\beta}_t$ sequence as observations from a local linear trend state-space model and applying the Rauch--Tung--Striebel (Kalman) smoother to recover the underlying treatment effect trajectory and its derivative. The Kalman smoother reduces level MSE by 62--82\% relative to raw estimates, substantially outperforming competitive baselines including James--Stein shrinkage (48\%), empirical Bayes (25\%), and Savitzky--Golay (56\%). The gains are largest for derivative estimation, where the Kalman smoother achieves 98\% MSE reduction versus 47\% for James--Stein and 74\% for Savitzky--Golay. Bootstrap-calibrated tests based on the Kalman-smoothed estimates achieve correct size and modest power improvements over the standard Wald test for detecting pre-trend violations.
 \end{abstract}
 
 \section{Introduction}
@@ -34,7 +34,7 @@ Event study designs are among the most widely used tools in applied economics. T
 
 We observe that the sequence $\{\hat{\beta}_t\}$ is, by construction, a noisy time series with known, heteroskedastic observation noise: each $\hat{\beta}_t$ is normally distributed around the true $\beta_t$ with variance $\hat{\sigma}^2_t$ from the regression. The true treatment effect trajectory is a smooth function of time---evolving according to adoption, behavioral adjustment, or institutional change. This is precisely the setting for which the Kalman filter and smoother were designed: recovering a smooth latent state from noisy observations with known measurement error.
 
-Our contribution is to formalize this connection, implement the Rauch--Tung--Striebel (RTS) smoother for event study coefficients, and demonstrate that it substantially outperforms not only raw estimates but also the natural competing approaches---parametric trend models, James--Stein shrinkage, empirical Bayes, and LOESS---for estimation, with modest gains for parallel trends testing. The key advantage is that the Kalman smoother uses the \emph{known heteroskedastic standard errors} to adapt its smoothing intensity period by period, while simultaneously estimating the treatment effect level and its rate of change.
+Our contribution is to formalize this connection, implement the Rauch--Tung--Striebel (RTS) smoother for event study coefficients, and demonstrate that it substantially outperforms not only raw estimates but also the natural competing approaches---parametric trend models, James--Stein shrinkage, empirical Bayes, and Savitzky--Golay---for estimation, with modest gains for parallel trends testing. The key advantage is that the Kalman smoother uses the \emph{known heteroskedastic standard errors} to adapt its smoothing intensity period by period, while simultaneously estimating the treatment effect level and its rate of change.
 
 \subsection{Related Work}
 
@@ -51,7 +51,7 @@ $\hat{\beta}_t \sim \mathcal{N}(\beta_t, \sigma^2_t)$ independently across $t$, 
 \end{assumption}
 
 \begin{remark}[Scope of Independence]
-Assumption~\ref{a:normal} holds approximately when: (i) the panel is balanced with many clusters ($\geq 30$), (ii) treatment timing is uniform across units (not staggered), and (iii) errors are not strongly persistent. It may fail with staggered adoption (different units imply different comparison groups), few clusters, or strongly autocorrelated errors. Practitioners should extract the full variance-covariance matrix of $\hat{\beta}$ from their TWFE regression and verify that off-diagonal correlations are small (e.g., $\max|\text{corr}(\hat{\beta}_s, \hat{\beta}_t)| < 0.1$ for $s \neq t$).
+Assumption~\ref{a:normal} holds approximately when: (i) the panel is balanced with many clusters ($\geq 30$), (ii) treatment timing is uniform across units (not staggered), and (iii) errors are not strongly persistent. It may fail with staggered adoption (different units imply different comparison groups), few clusters, or strongly autocorrelated errors. Practitioners should extract the full variance-covariance matrix of $\hat{\beta}$ from their TWFE regression and verify that off-diagonal correlations are small (e.g., $\max|\text{corr}(\hat{\beta}_s, \hat{\beta}_t)| < 0.1$ for $s \neq t$). For staggered designs where standard TWFE produces biased $\hat{\beta}_t$, we recommend first obtaining valid estimates from heterogeneity-robust estimators \citep[e.g.,][]{callaway2021difference, sun2021estimating}, then applying the Kalman smoother to the robust sequence.
 \end{remark}
 
 \begin{assumption}[Known Observation Noise]\label{a:known_se}
@@ -67,6 +67,10 @@ The true $\beta_t$ is locally well-approximated by a linear trend: $\beta_{t+1} 
 \end{assumption}
 
 Assumption~\ref{a:smooth} encodes the prior that treatment effects evolve according to economic dynamics. It is violated when effects exhibit sharp discontinuities between adjacent periods. We quantify the consequences in Section~\ref{sec:sensitivity}.
+
+\begin{remark}[Smoothness Governs Estimation, Not Identification]
+The smoothness assumption is a regularization prior for \emph{estimation}, not an identifying assumption. Identification of period-specific treatment effects still rests entirely on the parallel trends assumption. The bootstrap-calibrated pre-trend test draws from $\hat{\beta}^{(b)}_t \sim N(0, \hat{\sigma}^2_t)$ under $H_0$, not from the state-space model. Smoothing improves MSE under correct specification of Assumption~\ref{a:smooth}, but the causal interpretation derives from the research design.
+\end{remark}
 
 \section{The Kalman Smoother for Event Studies}
 
@@ -89,6 +93,10 @@ Under Assumptions~\ref{a:normal}--\ref{a:smooth}, and given the process noise $\
 
 \begin{remark}[Conditional Optimality]
 The result is conditional on the assumed $\mathbf{Q}$. With misspecified $\mathbf{Q}$ (the practical case, since $\mathbf{Q}$ is a tuning parameter), the smoother is MMSE for the assumed model, which may differ from the true data-generating process. Section~\ref{sec:sensitivity} quantifies the robustness to $\mathbf{Q}$ misspecification.
+\end{remark}
+
+\begin{remark}[Estimand Unchanged]
+The smoothed estimate $\hat{\beta}^{\rm KS}_t$ targets the same period-specific average treatment effect as the raw $\hat{\beta}_t$. Smoothing is a shrinkage estimator that improves MSE under the smoothness prior without changing the estimand. The causal interpretation is unchanged: $\beta_t$ remains the ATT in period $t$.
 \end{remark}
 
 \section{Competitive Baselines}\label{sec:baselines}
@@ -128,7 +136,7 @@ This test is sensitive to trending violations---precisely the anticipation effec
 \paragraph{Parametric bootstrap.} For any test statistic $S$: (i) draw $\hat{\beta}^{(b)}_t \sim N(0, \hat{\sigma}^2_t)$ for $b = 1, \ldots, B$ under $H_0$; (ii) compute $S^{(b)}$; (iii) reject if the observed $S$ exceeds the $(1-\alpha)$ quantile of $\{S^{(b)}\}$. This yields exact size because the null DGP is fully specified.
 
 \begin{proposition}[Size Control]\label{prop:size}
-The bootstrap-calibrated test has rejection probability $\alpha + O(B^{-1/2})$ under $H_0$ and Assumptions~\ref{a:normal}--\ref{a:known_se}.
+The bootstrap-calibrated test has rejection probability $\alpha + O(B^{-1/2})$ under $H_0$ and Assumptions~\ref{a:normal}--\ref{a:known_se}. This follows from the parametric bootstrap being exact when the null DGP is correctly specified \citep{efron1994introduction}.
 \end{proposition}
 
 
@@ -142,7 +150,7 @@ We set $T_{\rm pre} = T_{\rm post} = 12$. Treatment effects follow five patterns
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../figs/paper_fig1.png}
+\includegraphics[width=\textwidth]{../figs/paper_fig1.pdf}
 \caption{Event study estimates for four treatment effect patterns. Top: level. Bottom: derivative. Gray = raw $\hat{\beta}_t$ with 95\% CIs. Orange = Savitzky--Golay. Blue = Kalman smoother with 95\% posterior bands. Dashed black = truth. Red vertical line = treatment date.}
 \label{fig:example}
 \end{figure}
@@ -159,7 +167,7 @@ Table~\ref{tab:mse} reports MSE for the baseline configuration ($N = 200$, $\sig
 \input{../tabs/table1_mse.tex}
 \end{table}
 
-First, the Kalman smoother has the lowest level MSE across all non-trivial patterns (gradual, immediate, fadeout, anticipation). Empirical Bayes achieves the lowest level MSE under no effect (0.89 vs.\ Kalman's 4.53) because EB shrinks toward zero, which is the truth under this pattern. But EB's advantage reverses under treatment: its level MSE is 3--4$\times$ Kalman's for gradual and anticipation, because shrinking toward zero is the wrong target when effects are nonzero.
+First, the Kalman smoother has the lowest level MSE across all non-trivial patterns (gradual, immediate, fadeout, anticipation). Empirical Bayes achieves the lowest level MSE under no effect (0.89 vs.\ Kalman's 4.38) because EB shrinks toward zero, which is the truth under this pattern. But EB's advantage reverses under treatment: its level MSE is 3--4$\times$ Kalman's for gradual and anticipation, because shrinking toward zero is the wrong target when effects are nonzero.
 
 Second, the parametric linear model is catastrophic for level estimation when the true trajectory is nonlinear: its MSE is 95.91 for the gradual pattern, nearly 4$\times$ worse than raw estimates. This is the price of imposing the wrong parametric structure.
 
@@ -169,7 +177,7 @@ Figure~\ref{fig:mse} shows that these gains persist across sample sizes and nois
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../figs/paper_fig2.png}
+\includegraphics[width=\textwidth]{../figs/paper_fig2.pdf}
 \caption{(a) Level MSE across configurations for the gradual pattern. (b) Derivative MSE at baseline for all methods.}
 \label{fig:mse}
 \end{figure}
@@ -195,13 +203,13 @@ Figure~\ref{fig:sizepower} shows power across configurations.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../figs/paper_fig3.png}
+\includegraphics[width=\textwidth]{../figs/paper_fig3.pdf}
 \caption{(a) Size and power at baseline. (b) Power against anticipation across configurations. The Kalman-based tests achieve modest but consistent power improvements while maintaining correct size.}
 \label{fig:sizepower}
 \end{figure}
 
 
-\subsection{Sensitivity to Process Noise $\mathbf{Q}$}\label{sec:sensitivity}
+\subsection{Sensitivity to Process Noise \texorpdfstring{$\mathbf{Q}$}{Q}}\label{sec:sensitivity}
 
 \begin{table}[H]
 \centering
@@ -213,7 +221,7 @@ Performance degrades gradually with misspecification of $\mathbf{Q}$ (Table~\ref
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../figs/paper_fig4.png}
+\includegraphics[width=\textwidth]{../figs/paper_fig4.pdf}
 \caption{Level and derivative MSE as a function of $q_\ell$, for three treatment effect patterns.}
 \label{fig:sensitivity}
 \end{figure}
@@ -232,7 +240,7 @@ We recommend the following diagnostics before applying the Kalman smoother.
 \begin{equation}
 \log L(\mathbf{Q}) = -\frac{1}{2} \sum_{t=1}^T \left( \log S_t + e_t^2 / S_t \right)
 \end{equation}
-can be maximized over $\mathbf{Q}$ to select the process noise automatically, eliminating the tuning parameter. This is the approach taken in state-space model estimation \citep{durbin2012time}.
+can be maximized over $\mathbf{Q}$ to select the process noise automatically, eliminating the tuning parameter. This is the approach taken in state-space model estimation \citep{durbin2012time}. We recommend selecting $\mathbf{Q}$ via marginal likelihood maximization rather than relying on defaults. The defaults in Section~\ref{sec:sensitivity} are calibrated starting points, but data-driven selection via MLE is preferable when computationally feasible.
 
 
 \section{Discussion and Limitations}\label{sec:limitations}
@@ -247,11 +255,17 @@ can be maximized over $\mathbf{Q}$ to select the process noise automatically, el
 
 \paragraph{Why not parametric trends?} A linear trend model works when the pre-trend is linear, but fails catastrophically otherwise (MSE 4$\times$ worse than raw for the gradual pattern). The Kalman smoother's nonparametric flexibility avoids this risk.
 
-\paragraph{Pre-testing concerns.} \citet{roth2022pretest} shows that conditioning on passing a pre-test distorts inference. Our test detects slightly more violations, though the power gains are modest. However, violations that survive our test are precisely those the smoother has shrunk the most, raising questions about the interaction between power gains and conditioning bias that warrant further investigation.
+\paragraph{Pre-testing concerns.} \citet{roth2022pretest} shows that conditioning on passing a pre-test distorts inference. Our test detects slightly more violations, though the power gains are modest. However, violations that survive our test are precisely those the smoother has shrunk the most, raising questions about the interaction between power gains and conditioning bias that warrant further investigation. Researchers concerned about conditioning bias should consider sensitivity analysis \citep{rambachan2023more} rather than relying solely on pre-tests, regardless of which test statistic is used.
 
 \paragraph{Comparison with \citet{rambachan2023more}.} Our approach and Rambachan--Roth address different aspects of the parallel trends problem. They provide sensitivity analysis for bounded violations; we provide better estimates of the treatment effect trajectory. The Kalman-smoothed estimates could serve as inputs to their framework, potentially yielding tighter bounds.
 
 \paragraph{Choice of $\mathbf{Q}$.} This is a tuning parameter analogous to bandwidth in nonparametric regression. Marginal likelihood maximization, cross-validation, or calibration to the observed $\hat{\beta}_t$ variability are all viable selection methods.
+
+\paragraph{Why not full Bayesian inference?} A natural extension would specify priors on $\mathbf{Q}$ and perform full posterior inference via MCMC. The Kalman filter provides a practical middle ground: closed-form solutions, computational simplicity, and no prior elicitation beyond the state-space structure. The frequentist bootstrap provides valid inference without requiring researchers to defend Bayesian prior choices.
+
+\paragraph{Derivative interpretation.} The derivative estimates $\widehat{\Delta\beta}^{\rm KS}_t$ inherit more from the smoothness assumption than the level estimates. With noisy observations, there is limited direct information about $\Delta\beta_t$---the prior plays a larger role. Researchers should interpret $\widehat{\Delta\beta}^{\rm KS}_t$ as ``the derivative under the smoothness assumption'' rather than a model-free estimate. The 98\% MSE reduction reflects that raw first differences are dominated by noise, so even a weak prior helps substantially.
+
+\paragraph{Replication materials.} Code and replication materials are available at \url{https://github.com/finite-sample/kalman-event}.
 
 \section{Conclusion}
 

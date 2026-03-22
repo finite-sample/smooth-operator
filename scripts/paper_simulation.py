@@ -707,9 +707,9 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
 plt.suptitle("Figure 1: Event Study Estimates --- Raw, Savitzky-Golay, and Kalman Smoother",
              fontsize=14, y=1.01)
 plt.tight_layout()
-plt.savefig(f"{OUT_FIG}/paper_fig1.png", dpi=200, bbox_inches="tight")
+plt.savefig(f"{OUT_FIG}/paper_fig1.pdf", bbox_inches="tight")
 plt.close()
-print("\nSaved paper_fig1.png")
+print("\nSaved paper_fig1.pdf")
 
 
 # --- Figure 2: MSE across methods ---
@@ -752,9 +752,9 @@ for bar, v in zip(bars, vals):
             ha="center", fontsize=8)
 
 plt.tight_layout()
-plt.savefig(f"{OUT_FIG}/paper_fig2.png", dpi=200, bbox_inches="tight")
+plt.savefig(f"{OUT_FIG}/paper_fig2.pdf", bbox_inches="tight")
 plt.close()
-print("Saved paper_fig2.png")
+print("Saved paper_fig2.pdf")
 
 
 # --- Figure 3: Size and power ---
@@ -799,9 +799,9 @@ ax.legend(fontsize=7)
 ax.grid(True, alpha=0.2)
 
 plt.tight_layout()
-plt.savefig(f"{OUT_FIG}/paper_fig3.png", dpi=200, bbox_inches="tight")
+plt.savefig(f"{OUT_FIG}/paper_fig3.pdf", bbox_inches="tight")
 plt.close()
-print("Saved paper_fig3.png")
+print("Saved paper_fig3.pdf")
 
 
 # --- Figure 4: Sensitivity to Q ---
@@ -819,8 +819,8 @@ for k, metric in enumerate(["level_mse", "deriv_mse"]):
     ax.grid(True, alpha=0.2)
 
 plt.tight_layout()
-plt.savefig(f"{OUT_FIG}/paper_fig4.png", dpi=200, bbox_inches="tight")
+plt.savefig(f"{OUT_FIG}/paper_fig4.pdf", bbox_inches="tight")
 plt.close()
-print("Saved paper_fig4.png")
+print("Saved paper_fig4.pdf")
 
 print("\nAll tables and figures saved.")
