@@ -25,6 +25,17 @@ OUT_FIG = "../figs"
 OUT_TABS = "../tabs"
 os.makedirs(OUT_FIG, exist_ok=True)
 
+
+def true_derivative(arr):
+    """
+    Compute forward differences for derivative comparison.
+
+    The Kalman state's slope component represents a forward difference,
+    so the truth target should match: d[t] = arr[t] - arr[t-1].
+    """
+    return np.diff(arr, prepend=arr[0])
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # KALMAN SMOOTHER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -228,7 +239,7 @@ def savgol_smooth(bhat, span=0.3):
         w += 1
     w = min(w, T - 2)
     if w < 5:
-        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
+        return bhat.copy(), true_derivative(bhat)
     return savgol_filter(bhat, w, 3), savgol_filter(bhat, w, 3, deriv=1)
 
 
@@ -242,7 +253,7 @@ def parametric_linear(bhat, se, T_pre):
     swty = (pre_w * pre_t * pre_b).sum()
     denom = sw * swtt - swt**2
     if abs(denom) < 1e-15:
-        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
+        return bhat.copy(), true_derivative(bhat)
     b = (sw * swty - swt * swy) / denom
     a = (swy - b * swt) / sw
     return a + b * t, np.full(T, b)
@@ -253,13 +264,13 @@ def james_stein(bhat, se, T_pre):
     T = len(bhat)
     p = T_pre
     if p <= 2:
-        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
+        return bhat.copy(), true_derivative(bhat)
     sigma2 = np.mean(se[:T_pre]**2)
     sum_b2 = np.sum(bhat[:T_pre]**2)
     B = max(0, 1 - (p - 2) * sigma2 / sum_b2)
     shrunk = bhat.copy()
     shrunk[:T_pre] = B * bhat[:T_pre]
-    return shrunk, np.diff(shrunk, prepend=shrunk[0])
+    return shrunk, true_derivative(shrunk)
 
 
 def empirical_bayes(bhat, se, T_pre):
@@ -274,7 +285,7 @@ def empirical_bayes(bhat, se, T_pre):
     for t in range(T_pre, T):
         w = tau2_all / (tau2_all + se[t]**2) if tau2_all > 0 else 0
         shrunk[t] = w * bhat[t]
-    return shrunk, np.diff(shrunk, prepend=shrunk[0])
+    return shrunk, true_derivative(shrunk)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -512,7 +523,7 @@ METHOD_NAMES = ["Raw", "Parametric linear", "James-Stein", "Empirical Bayes",
 
 def apply_method(mname, bhat, se, T_pre, ks):
     if mname == "Raw":
-        return bhat.copy(), np.diff(bhat, prepend=bhat[0])
+        return bhat.copy(), true_derivative(bhat)
     elif mname == "Parametric linear":
         return parametric_linear(bhat, se, T_pre)
     elif mname == "James-Stein":
@@ -538,7 +549,7 @@ t1_rows = []
 for n, sigma, clabel in CONFIGS:
     for pattern in PATTERNS:
         bt = true_effect(T_PRE, T_POST, pattern)
-        td = np.diff(bt, prepend=bt[0])
+        td = true_derivative(bt)
         mse_l = {m: [] for m in METHOD_NAMES}
         mse_d = {m: [] for m in METHOD_NAMES}
 
@@ -733,7 +744,7 @@ for ql, qs in Q_CONFIGS:
     sm = KalmanSmoother(ql, qs)
     for pattern in ["no effect", "gradual", "anticipation"]:
         bt = true_effect(T_PRE, T_POST, pattern)
-        td = np.diff(bt, prepend=bt[0])
+        td = true_derivative(bt)
         ml, md = [], []
         for sim in range(N_SIMS):
             rng = np.random.RandomState(sim)
@@ -782,7 +793,7 @@ ADVERSARIAL_PATTERNS = ["sawtooth", "step_multiple", "immediate"]
 t4_rows = []
 for pattern in ADVERSARIAL_PATTERNS:
     bt = true_effect(T_PRE, T_POST, pattern)
-    td = np.diff(bt, prepend=bt[0])
+    td = true_derivative(bt)
     mse_l = {m: [] for m in METHOD_NAMES}
     mse_d = {m: [] for m in METHOD_NAMES}
 
@@ -937,7 +948,7 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     lvl, slp, lse, sse, _ = KS.smooth(bh, se)
     ll, ld = savgol_smooth(bh)
     t = np.arange(len(bh)) - T_PRE
-    td = np.diff(bt, prepend=bt[0])
+    td = true_derivative(bt)
 
     ax = axes[0, i]
     ax.fill_between(t, bh - 1.96 * se, bh + 1.96 * se, alpha=0.12, color="gray")
@@ -955,7 +966,7 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     ax.grid(True, alpha=0.2)
 
     ax = axes[1, i]
-    ax.scatter(t, np.diff(bh, prepend=bh[0]), s=10, color="gray", alpha=0.4)
+    ax.scatter(t, true_derivative(bh), s=10, color="gray", alpha=0.4)
     ax.plot(t, td, "k--", lw=2, label="True $\\Delta\\beta_t$")
     ax.plot(t, ld, color="#f28e2b", lw=1.5, alpha=0.8, label="Savitzky-Golay")
     ax.plot(t, slp, color="#4e79a7", lw=2, zorder=4, label="Kalman slope")
