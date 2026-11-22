@@ -1,23 +1,23 @@
-\begin{tabular}{l rrrrrr}
+\begin{tabular}{l rrrrrrr}
 \toprule
-& \multicolumn{6}{c}{Level MSE ($\times 10^3$)} \\
-\cmidrule(lr){2-7}
-Pattern & Raw & Param.\ lin. & J--S & EB & S--G & Kalman \\
+& \multicolumn{7}{c}{Level MSE ($\times 10^3$)} \\
+\cmidrule(lr){2-8}
+Pattern & Raw & Param.\ lin. & J--S & EB & S--G & Kalman & Kalman (pw) \\
 \midrule
-No effect       & 24.65 & 14.94 & 12.91 & 0.89 & 10.77 & 4.38 \\
-Gradual         & 24.65 & 95.91 & 12.91 & 18.59 & 10.87 & 4.88 \\
-Immediate       & 24.65 & 96.11 & 12.91 & 18.78 & 12.41 & 7.29 \\
-Fadeout         & 24.65 & 67.97 & 12.91 & 16.38 & 13.59 & 9.34 \\
-Anticipation    & 24.65 & 40.26 & 14.15 & 21.75 & 10.79 & 4.55 \\
+No effect       & 24.65 & 14.94 & 12.91 & 0.89 & 10.77 & 4.38 & 5.12 \\
+Gradual         & 24.65 & 95.91 & 12.91 & 18.59 & 10.87 & 4.88 & 5.25 \\
+Immediate       & 24.65 & 96.11 & 12.91 & 18.78 & 12.41 & 7.29 & 5.12 \\
+Fadeout         & 24.65 & 67.97 & 12.91 & 16.38 & 13.59 & 9.34 & 5.15 \\
+Anticipation    & 24.65 & 40.26 & 14.15 & 21.75 & 10.79 & 4.55 & 5.27 \\
 \midrule
-& \multicolumn{6}{c}{Derivative MSE ($\times 10^3$)} \\
-\cmidrule(lr){2-7}
-Pattern & Raw & Param.\ lin. & J--S & EB & S--G & Kalman \\
+& \multicolumn{7}{c}{Derivative MSE ($\times 10^3$)} \\
+\cmidrule(lr){2-8}
+Pattern & Raw & Param.\ lin. & J--S & EB & S--G & Kalman & Kalman (pw) \\
 \midrule
-No effect       & 46.39 & 0.18 & 24.70 & 1.81 & 11.94 & 0.32 \\
-Gradual         & 46.39 & 1.74 & 24.70 & 10.52 & 12.16 & 0.87 \\
-Immediate       & 46.39 & 6.85 & 24.70 & 10.90 & 15.88 & 5.84 \\
-Fadeout         & 46.39 & 11.06 & 24.70 & 10.31 & 18.72 & 9.78 \\
-Anticipation    & 46.39 & 0.75 & 26.02 & 9.68 & 11.98 & 0.46 \\
+No effect       & 46.39 & 0.18 & 24.70 & 1.81 & 11.94 & 0.32 & 1.07 \\
+Gradual         & 46.39 & 1.74 & 24.70 & 10.52 & 12.16 & 0.87 & 1.26 \\
+Immediate       & 46.39 & 6.85 & 24.70 & 10.90 & 15.88 & 5.84 & 1.07 \\
+Fadeout         & 46.39 & 11.06 & 24.70 & 10.31 & 18.72 & 9.78 & 1.10 \\
+Anticipation    & 46.39 & 0.75 & 26.02 & 9.68 & 11.98 & 0.46 & 1.33 \\
 \bottomrule
 \end{tabular}

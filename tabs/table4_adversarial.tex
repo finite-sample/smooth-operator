@@ -1,11 +1,11 @@
-\begin{tabular}{l rrrr}
+\begin{tabular}{l rrrrrr}
 \toprule
-& \multicolumn{2}{c}{Level MSE ($\times 10^3$)} & \multicolumn{2}{c}{Deriv MSE ($\times 10^3$)} \\
-\cmidrule(lr){2-3} \cmidrule(lr){4-5}
-Pattern & Raw & Kalman & Raw & Kalman \\
+& \multicolumn{3}{c}{Level MSE ($\times 10^3$)} & \multicolumn{3}{c}{Deriv MSE ($\times 10^3$)} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+Pattern & Raw & Kalman & Kalman (pw) & Raw & Kalman & Kalman (pw) \\
 \midrule
-Sawtooth     & 24.65 & 15.77 & 46.39 & 45.24 \\
-Multi-step   & 24.65 & 7.48 & 46.39 & 6.23 \\
-Immediate    & 24.65 & 7.29 & 46.39 & 5.84 \\
+Sawtooth     & 24.65 & 15.77 & 15.54 & 46.39 & 45.24 & 42.74 \\
+Multi-step   & 24.65 & 7.48 & 7.79 & 46.39 & 6.23 & 5.78 \\
+Immediate    & 24.65 & 7.29 & 5.12 & 46.39 & 5.84 & 1.07 \\
 \bottomrule
 \end{tabular}

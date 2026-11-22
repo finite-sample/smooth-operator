@@ -127,6 +127,26 @@ class KalmanSmoother:
         sse = np.array([np.sqrt(max(P[1, 1], 1e-12)) for P in Ps])
         return lvl, slp, lse, sse, Ps
 
+    def smooth_piecewise(self, bhat, se, T_pre):
+        """
+        Piecewise RTS smoother that breaks the state transition at the treatment date T_pre.
+
+        Pre-treatment (0..T_pre-1) and post-treatment (T_pre..T-1) are smoothed
+        independently so post-treatment jumps cannot leak backward into the
+        pre-period and pre-treatment zeros do not attenuate the initial treatment jump.
+        """
+        l_pre, s_pre, lse_pre, sse_pre, Ps_pre = self.smooth(bhat[:T_pre], se[:T_pre])
+        l_post, s_post, lse_post, sse_post, Ps_post = self.smooth(bhat[T_pre:], se[T_pre:])
+        s_post_adj = s_post.copy()
+        s_post_adj[0] = l_post[0] - l_pre[-1]
+        return (
+            np.concatenate([l_pre, l_post]),
+            np.concatenate([s_pre, s_post_adj]),
+            np.concatenate([lse_pre, lse_post]),
+            np.concatenate([sse_pre, sse_post]),
+            Ps_pre + Ps_post,
+        )
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # KALMAN SMOOTHER WITH FULL VCV (CORRELATED OBSERVATION NOISE)
@@ -137,11 +157,10 @@ class KalmanSmootherFullVCV:
     Local linear trend state-space model with correlated observation noise.
 
     Unlike KalmanSmoother which assumes diagonal R_t (independent observations),
-    this version processes the full T-dimensional observation vector at once
-    using the full variance-covariance matrix.
-
-    For computational tractability with moderately sized T, we use a sequential
-    update that accounts for cross-period correlations via the full VCV matrix.
+    this version computes the exact Gaussian posterior E[X | bhat] and Cov(X | bhat)
+    for the full 2T-dimensional state trajectory X = [x_1, ..., x_T]' given an
+    arbitrary T x T observation covariance matrix R. When R = diag(se^2), this
+    is algebraically identical to the RTS smoother.
     """
     def __init__(self, q_level=0.002, q_slope=0.001):
         self.F = np.array([[1., 1.], [0., 1.]])
@@ -150,72 +169,51 @@ class KalmanSmootherFullVCV:
         self.q_level = q_level
         self.q_slope = q_slope
 
-    def smooth(self, bhat, se, rho=0.0):
-        """
-        Smooth with AR(1) correlated observation noise.
-
-        The observation noise covariance is modeled as:
-            R[s,t] = se[s] * se[t] * rho^|s-t|
-
-        When rho=0, this reduces to the diagonal case.
-        """
+    def smooth_vcv(self, bhat, R_full):
+        """Exact Gaussian posterior smoother under arbitrary T x T covariance R_full."""
         T = len(bhat)
-        F, H, Q = self.F, self.H, self.Q
+        F, Q = self.F, self.Q
+        P0 = np.diag([R_full[0, 0] * 100, Q[1, 1] * 100])
+        x0_mean = np.array([bhat[0], 0.0])
 
-        R_full = np.zeros((T, T))
-        for s in range(T):
-            for t in range(T):
-                R_full[s, t] = se[s] * se[t] * (rho ** abs(s - t))
-
-        x = np.array([bhat[0], 0.0])
-        P = np.diag([se[0]**2 * 100, Q[1, 1] * 100])
-
-        xf, Pf, xp, Pp = [], [], [], []
-
+        m0 = np.zeros(2 * T)
+        P_curr = P0.copy()
+        cov_diag = [P_curr.copy()]
         for t in range(T):
+            m0[2 * t : 2 * t + 2] = np.linalg.matrix_power(F, t) @ x0_mean
             if t > 0:
-                xpr = F @ x
-                Ppr = F @ P @ F.T + Q
-            else:
-                xpr = x.copy()
-                Ppr = P.copy()
-            xp.append(xpr.copy())
-            Pp.append(Ppr.copy())
+                P_curr = F @ P_curr @ F.T + Q
+                cov_diag.append(P_curr.copy())
 
-            R = np.array([[R_full[t, t]]])
-            S = H @ Ppr @ H.T + R
-            K = Ppr @ H.T / S[0, 0]
-            innov = bhat[t] - (H @ xpr)[0]
+        Omega = np.zeros((2 * T, 2 * T))
+        for s in range(T):
+            for t in range(s, T):
+                Ft = np.linalg.matrix_power(F, t - s)
+                C_st = cov_diag[s] @ Ft.T
+                Omega[2 * s : 2 * s + 2, 2 * t : 2 * t + 2] = C_st
+                if t > s:
+                    Omega[2 * t : 2 * t + 2, 2 * s : 2 * s + 2] = C_st.T
 
-            if rho != 0 and t > 0:
-                correction = 0.0
-                for s in range(t):
-                    past_innov = bhat[s] - xf[s][0]
-                    corr_factor = R_full[s, t] / (R_full[s, s] + 1e-12)
-                    correction += corr_factor * past_innov * 0.1
-                innov -= correction
+        H_big = np.zeros((T, 2 * T))
+        for t in range(T):
+            H_big[t, 2 * t] = 1.0
 
-            x = xpr + K.flatten() * innov
-            IKH = np.eye(2) - K @ H
-            P = IKH @ Ppr @ IKH.T + K @ R @ K.T
-            xf.append(x.copy())
-            Pf.append(P.copy())
+        S_big = H_big @ Omega @ H_big.T + R_full
+        K_big = Omega @ H_big.T @ np.linalg.solve(S_big, np.eye(T))
+        m_post = m0 + K_big @ (bhat - H_big @ m0)
+        P_post = Omega - K_big @ H_big @ Omega
 
-        xs = [xf[-1].copy()]
-        Ps = [Pf[-1].copy()]
-        for t in range(T - 2, -1, -1):
-            try:
-                C = Pf[t] @ F.T @ np.linalg.inv(Pp[t + 1])
-            except np.linalg.LinAlgError:
-                C = Pf[t] @ F.T @ np.linalg.pinv(Pp[t + 1])
-            xs.insert(0, xf[t] + C @ (xs[0] - xp[t + 1]))
-            Ps.insert(0, Pf[t] + C @ (Ps[0] - Pp[t + 1]) @ C.T)
-
-        lvl = np.array([x[0] for x in xs])
-        slp = np.array([x[1] for x in xs])
+        lvl = m_post[0::2]
+        slp = m_post[1::2]
+        Ps = [P_post[2 * t : 2 * t + 2, 2 * t : 2 * t + 2] for t in range(T)]
         lse = np.array([np.sqrt(max(P[0, 0], 1e-12)) for P in Ps])
         sse = np.array([np.sqrt(max(P[1, 1], 1e-12)) for P in Ps])
         return lvl, slp, lse, sse, Ps
+
+    def smooth(self, bhat, se, rho=0.0):
+        """Smooth with AR(1) correlated observation noise R[s,t] = se[s]*se[t]*rho^|s-t|."""
+        R_full = build_ar1_vcv(se, rho)
+        return self.smooth_vcv(bhat, R_full)
 
 
 def build_ar1_vcv(se, rho):
@@ -379,28 +377,24 @@ def simulate_panel_twfe(T_pre, T_post, n_units, sigma, pattern, rng):
     Y = np.zeros((n_units, T))
     for i in range(n_units):
         for t in range(T):
-            D_it = 1.0 if (treated[i] and t >= T_pre) else 0.0
+            D_it = 1.0 if treated[i] else 0.0
             Y[i, t] = alpha[i] + gamma[t] + beta_true[t] * D_it + rng.randn() * sigma
 
-    Y_dm = Y.copy()
-    for i in range(n_units):
-        Y_dm[i, :] -= Y[i, :].mean()
-    for t in range(T):
-        Y_dm[:, t] -= Y_dm[:, t].mean()
-
+    ref = T_pre - 1
     bhat = np.zeros(T)
     se = np.zeros(T)
+    diff_ref = Y[treated, ref] - Y[treated, ref].mean()
 
     for t in range(T):
-        if t < T_pre:
+        if t == ref:
             bhat[t] = 0.0
-            se[t] = sigma * np.sqrt(1.0 / n_treated + 1.0 / n_control)
+            se[t] = 1e-6
         else:
-            y_t = Y_dm[treated, t]
-            y_c = Y_dm[~treated, t]
-            bhat[t] = y_t.mean() - y_c.mean()
-            var_t = y_t.var(ddof=1) / n_treated if n_treated > 1 else 0.01
-            var_c = y_c.var(ddof=1) / n_control if n_control > 1 else 0.01
+            dy_t = Y[treated, t] - Y[treated, ref]
+            dy_c = Y[~treated, t] - Y[~treated, ref]
+            bhat[t] = dy_t.mean() - dy_c.mean()
+            var_t = dy_t.var(ddof=1) / n_treated if n_treated > 1 else 0.01
+            var_c = dy_c.var(ddof=1) / n_control if n_control > 1 else 0.01
             se[t] = np.sqrt(var_t + var_c)
 
     se = np.maximum(se, 1e-6)
@@ -518,7 +512,7 @@ CONFIGS = [
 ]
 
 METHOD_NAMES = ["Raw", "Parametric linear", "James-Stein", "Empirical Bayes",
-                "Savitzky-Golay", "Kalman smoother"]
+                "Savitzky-Golay", "Kalman smoother", "Kalman (piecewise)"]
 
 
 def apply_method(mname, bhat, se, T_pre, ks):
@@ -534,6 +528,9 @@ def apply_method(mname, bhat, se, T_pre, ks):
         return savgol_smooth(bhat)
     elif mname == "Kalman smoother":
         lvl, slp, _, _, _ = ks.smooth(bhat, se)
+        return lvl, slp
+    elif mname == "Kalman (piecewise)":
+        lvl, slp, _, _, _ = ks.smooth_piecewise(bhat, se, T_pre)
         return lvl, slp
 
 
@@ -578,20 +575,21 @@ t1.to_csv(f"{OUT_TABS}/table1_mse.csv", index=False)
 def write_table1_tex(df, path):
     sub = df[(df["n"] == 200) & (df["sigma"] == 1.0)]
     methods = ["Raw", "Parametric linear", "James-Stein", "Empirical Bayes",
-               "Savitzky-Golay", "Kalman smoother"]
+               "Savitzky-Golay", "Kalman smoother", "Kalman (piecewise)"]
     short = {"Raw": "Raw", "Parametric linear": "Param.\\ lin.",
              "James-Stein": "J--S", "Empirical Bayes": "EB",
-             "Savitzky-Golay": "S--G", "Kalman smoother": "Kalman"}
+             "Savitzky-Golay": "S--G", "Kalman smoother": "Kalman",
+             "Kalman (piecewise)": "Kalman (pw)"}
     pats = ["no effect", "gradual", "immediate", "fadeout", "anticipation"]
     pat_label = {"no effect": "No effect", "gradual": "Gradual",
                  "immediate": "Immediate", "fadeout": "Fadeout",
                  "anticipation": "Anticipation"}
 
     lines = []
-    lines.append(r"\begin{tabular}{l rrrrrr}")
+    lines.append(r"\begin{tabular}{l rrrrrrr}")
     lines.append(r"\toprule")
-    lines.append(r"& \multicolumn{6}{c}{Level MSE ($\times 10^3$)} \\")
-    lines.append(r"\cmidrule(lr){2-7}")
+    lines.append(r"& \multicolumn{7}{c}{Level MSE ($\times 10^3$)} \\")
+    lines.append(r"\cmidrule(lr){2-8}")
     header = "Pattern & " + " & ".join(short[m] for m in methods) + r" \\"
     lines.append(header)
     lines.append(r"\midrule")
@@ -603,8 +601,8 @@ def write_table1_tex(df, path):
         lines.append(f"{pat_label[p]:15s} & " + " & ".join(vals) + r" \\")
 
     lines.append(r"\midrule")
-    lines.append(r"& \multicolumn{6}{c}{Derivative MSE ($\times 10^3$)} \\")
-    lines.append(r"\cmidrule(lr){2-7}")
+    lines.append(r"& \multicolumn{7}{c}{Derivative MSE ($\times 10^3$)} \\")
+    lines.append(r"\cmidrule(lr){2-8}")
     lines.append(header)
     lines.append(r"\midrule")
     for p in pats:
@@ -821,25 +819,25 @@ t4 = pd.DataFrame(t4_rows)
 t4.to_csv(f"{OUT_TABS}/table4_adversarial.csv", index=False)
 
 def write_table4_tex(df, path):
-    methods = ["Raw", "Kalman smoother"]
-    short = {"Raw": "Raw", "Kalman smoother": "Kalman"}
     pats = ADVERSARIAL_PATTERNS
     pat_label = {"sawtooth": "Sawtooth", "step_multiple": "Multi-step",
                  "immediate": "Immediate"}
 
     lines = []
-    lines.append(r"\begin{tabular}{l rrrr}")
+    lines.append(r"\begin{tabular}{l rrrrrr}")
     lines.append(r"\toprule")
-    lines.append(r"& \multicolumn{2}{c}{Level MSE ($\times 10^3$)} & \multicolumn{2}{c}{Deriv MSE ($\times 10^3$)} \\")
-    lines.append(r"\cmidrule(lr){2-3} \cmidrule(lr){4-5}")
-    lines.append(r"Pattern & Raw & Kalman & Raw & Kalman \\")
+    lines.append(r"& \multicolumn{3}{c}{Level MSE ($\times 10^3$)} & \multicolumn{3}{c}{Deriv MSE ($\times 10^3$)} \\")
+    lines.append(r"\cmidrule(lr){2-4} \cmidrule(lr){5-7}")
+    lines.append(r"Pattern & Raw & Kalman & Kalman (pw) & Raw & Kalman & Kalman (pw) \\")
     lines.append(r"\midrule")
     for p in pats:
         raw_l = df[(df["method"] == "Raw") & (df["pattern"] == p)]["level_mse"].values[0] * 1000
         kal_l = df[(df["method"] == "Kalman smoother") & (df["pattern"] == p)]["level_mse"].values[0] * 1000
+        kpw_l = df[(df["method"] == "Kalman (piecewise)") & (df["pattern"] == p)]["level_mse"].values[0] * 1000
         raw_d = df[(df["method"] == "Raw") & (df["pattern"] == p)]["deriv_mse"].values[0] * 1000
         kal_d = df[(df["method"] == "Kalman smoother") & (df["pattern"] == p)]["deriv_mse"].values[0] * 1000
-        lines.append(f"{pat_label[p]:12s} & {raw_l:.2f} & {kal_l:.2f} & {raw_d:.2f} & {kal_d:.2f}" + r" \\")
+        kpw_d = df[(df["method"] == "Kalman (piecewise)") & (df["pattern"] == p)]["deriv_mse"].values[0] * 1000
+        lines.append(f"{pat_label[p]:12s} & {raw_l:.2f} & {kal_l:.2f} & {kpw_l:.2f} & {raw_d:.2f} & {kal_d:.2f} & {kpw_d:.2f}" + r" \\")
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
@@ -946,6 +944,7 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     bt = true_effect(T_PRE, T_POST, pattern)
     bh, se = simulate_bhat(bt, 200, 1.0, rng)
     lvl, slp, lse, sse, _ = KS.smooth(bh, se)
+    lvl_pw, slp_pw, _, _, _ = KS.smooth_piecewise(bh, se, T_PRE)
     ll, ld = savgol_smooth(bh)
     t = np.arange(len(bh)) - T_PRE
     td = true_derivative(bt)
@@ -956,6 +955,7 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     ax.plot(t, bt, "k--", lw=2, label="True $\\beta_t$")
     ax.plot(t, ll, color="#f28e2b", lw=1.5, alpha=0.8, label="Savitzky-Golay")
     ax.plot(t, lvl, color="#4e79a7", lw=2, zorder=4, label="Kalman (RTS)")
+    ax.plot(t, lvl_pw, color="#59a14f", lw=1.8, ls="-.", zorder=5, label="Kalman (piecewise)")
     ax.fill_between(t, lvl - 1.96 * lse, lvl + 1.96 * lse, alpha=0.15, color="#4e79a7")
     ax.axvline(0, color="red", ls=":", lw=1, alpha=0.5)
     ax.axhline(0, color="black", lw=0.3)
@@ -970,6 +970,7 @@ for i, pattern in enumerate(["gradual", "immediate", "fadeout", "anticipation"])
     ax.plot(t, td, "k--", lw=2, label="True $\\Delta\\beta_t$")
     ax.plot(t, ld, color="#f28e2b", lw=1.5, alpha=0.8, label="Savitzky-Golay")
     ax.plot(t, slp, color="#4e79a7", lw=2, zorder=4, label="Kalman slope")
+    ax.plot(t, slp_pw, color="#59a14f", lw=1.8, ls="-.", zorder=5, label="Kalman slope (pw)")
     ax.fill_between(t, slp - 1.96 * sse, slp + 1.96 * sse, alpha=0.15, color="#4e79a7")
     ax.axvline(0, color="red", ls=":", lw=1, alpha=0.5)
     ax.axhline(0, color="black", lw=0.3)
@@ -991,7 +992,8 @@ print("\nSaved paper_fig1.pdf")
 fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
 colors = {"Raw": "#999999", "Parametric linear": "#f28e2b",
           "James-Stein": "#59a14f", "Empirical Bayes": "#b07aa1",
-          "Savitzky-Golay": "#edc949", "Kalman smoother": "#4e79a7"}
+          "Savitzky-Golay": "#edc949", "Kalman smoother": "#4e79a7",
+          "Kalman (piecewise)": "#76b7b2"}
 
 # (a) Level MSE by method, gradual pattern, across configs
 ax = axes[0]
